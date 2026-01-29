@@ -1,0 +1,257 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum AiDecision {
+  EXTRACTED
+  SKIPPED
+  ERROR
+}
+
+enum Category {
+  BUSINESS
+  AI
+  FINANCE
+  THOUGHT
+}
+
+enum Potential {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IdeaType {
+  PLATFORM
+  PRODUCT
+  SERVICE
+  TOOL
+  CONCEPT
+  INSIGHT
+  WISDOM
+  TIP
+}
+
+enum IdeaStatus {
+  NEW
+  IN_PROGRESS
+  REVIEW
+  IMPLEMENTED
+  ARCHIVED
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  FAILED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  name            String?
+
+  // Google Keep integration
+  keepEmail       String?
+  keepMasterToken String?   // Encrypted with AES-256
+  keepTokenIv     String?   // IV for AES decryption
+  syncEnabled     Boolean   @default(true)
+  lastSyncAt      DateTime?
+  syncStatus      SyncStatus @default(IDLE)
+  syncError       String?
+
+  // Preferences
+  theme           Theme     @default(SYSTEM)
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  notes           Note[]
+  ideas           Idea[]
+  sessions        Session[]
+  syncLogs        SyncLog[]
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Note {
+  id               String           @id @default(cuid())
+  userId           String
+
+  // Google Keep data
+  keepId           String?          // Google Keep note ID
+  title            String?
+  content          String           @db.Text
+  labels           String[]         // Keep labels
+  isPinned         Boolean          @default(false)
+  isArchived       Boolean          @default(false)
+  isTrashed        Boolean          @default(false)
+  color            String?          // Keep note color
+
+  // Processing
+  processingStatus ProcessingStatus @default(PENDING)
+  aiDecision       AiDecision?
+  aiResponse       String?          @db.Text // Raw AI response JSON
+  processingError  String?
+  processedAt      DateTime?
+
+  // Source tracking
+  source           String           @default("keep") // "keep" | "manual"
+
+  // Timestamps from Keep
+  keepCreatedAt    DateTime?
+  keepUpdatedAt    DateTime?
+
+  // Internal timestamps
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ideas            Idea[]
+
+  @@unique([userId, keepId])
+  @@index([userId])
+  @@index([processingStatus])
+  @@index([keepId])
+}
+
+model Idea {
+  id          String     @id @default(cuid())
+  userId      String
+  noteId      String?    // Can be null for manually created ideas
+
+  // Core fields
+  title       String
+  description String     @db.Text
+  category    Category
+  potential   Potential
+  type        IdeaType
+  status      IdeaStatus @default(NEW)
+
+  // AI generated
+  nextSteps   String[]   // Action items
+
+  // User additions
+  userNotes   String?    @db.Text
+
+  // Timestamps
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note        Note?      @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  tags        IdeaTag[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@index([potential])
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String?
+  createdAt DateTime  @default(now())
+
+  ideas     IdeaTag[]
+
+  @@index([name])
+}
+
+model IdeaTag {
+  ideaId    String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([ideaId, tagId])
+}
+
+model SyncLog {
+  id            String   @id @default(cuid())
+  userId        String
+
+  startedAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  status        SyncStatus
+  notesFound    Int      @default(0)
+  notesCreated  Int      @default(0)
+  notesUpdated  Int      @default(0)
+  notesSkipped  Int      @default(0)
+  errorMessage  String?
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startedAt])
+}
+
+model ProcessingQueue {
+  id          String   @id @default(cuid())
+  noteId      String   @unique
+  priority    Int      @default(0)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  lastError   String?
+  scheduledAt DateTime @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scheduledAt])
+  @@index([lockedAt])
+}

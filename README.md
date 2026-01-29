@@ -1,36 +1,166 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Keep Brain
 
-## Getting Started
+AI asistent pro automatické zpracování poznámek z Google Keep - převádí chaotické zápisky na strukturované, kategorizované nápady.
 
-First, run the development server:
+## Architektura
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         KEEP BRAIN                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐        │
+│  │   Next.js    │     │    Redis     │     │   Python     │        │
+│  │   Frontend   │◄───►│   + BullMQ   │◄───►│   Worker     │        │
+│  │   + API      │     │              │     │  (gkeepapi)  │        │
+│  └──────┬───────┘     └──────────────┘     └──────┬───────┘        │
+│         │         ┌──────────────┐               │                 │
+│         └────────►│  PostgreSQL  │◄──────────────┘                 │
+│                   │   (Prisma 7) │                                  │
+│                   └──────────────┘                                  │
+│         ┌──────────────┐                                            │
+│         │  Claude API  │◄─── AI Processing Pipeline                 │
+│         └──────────────┘                                            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Technologie
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Next.js API Routes, Prisma 7
+- **Database**: PostgreSQL
+- **Queue**: Redis + BullMQ
+- **Google Keep**: Python + gkeepapi
+- **AI**: Claude API (Anthropic)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Instalace
 
-## Learn More
+### Předpoklady
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 20+
+- Python 3.10+
+- PostgreSQL 15+
+- Redis
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. Klonování a instalace závislostí
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+git clone https://github.com/your-username/keep-brain.git
+cd keep-brain
+npm install
+```
 
-## Deploy on Vercel
+### 2. Python worker
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cd worker
+python -m venv venv
+source venv/bin/activate  # nebo venv\Scripts\activate na Windows
+pip install -r requirements.txt
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3. Environment variables
+
+```bash
+cp .env.example .env.local
+```
+
+Vyplňte hodnoty v `.env.local`:
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `JWT_SECRET` - Secret pro JWT tokeny
+- `ENCRYPTION_KEY` - Klíč pro šifrování (32 znaků)
+- `ANTHROPIC_API_KEY` - API klíč pro Claude
+
+### 4. Databáze
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 5. Spuštění
+
+**Development:**
+```bash
+# Terminal 1 - Next.js
+npm run dev
+
+# Terminal 2 - Python worker
+cd worker && source venv/bin/activate && python main.py
+```
+
+**Production:**
+```bash
+npm run build
+pm2 start ecosystem.config.js
+```
+
+## Funkce
+
+- ✅ Registrace/Login s JWT autentizací
+- ✅ Propojení Google Keep účtu
+- ✅ Automatická synchronizace poznámek
+- ✅ AI zpracování poznámek (Claude API)
+- ✅ Extrakce nápadů s kategorizací
+- ✅ Dashboard se statistikami
+- ✅ Filtry a fulltext vyhledávání
+- ✅ Ruční přidání poznámek a nápadů
+- ✅ JSON export dat
+- ✅ Dark/Light mode
+
+## API Endpoints
+
+```
+/api/auth
+├── POST /register, /login, /logout
+└── GET  /me
+
+/api/keep
+├── POST   /connect
+├── DELETE /disconnect
+└── POST   /sync
+
+/api/notes
+├── GET    /
+├── POST   /
+├── GET    /:id
+└── POST   /:id/reprocess
+
+/api/ideas
+├── GET    /
+├── POST   /
+├── GET    /:id
+├── PATCH  /:id
+└── DELETE /:id
+
+/api/stats
+├── GET    /dashboard
+└── GET    /export
+```
+
+## Deployment
+
+### VPS (Apache + PM2)
+
+1. Nastavte Apache VirtualHost:
+```apache
+<VirtualHost *:443>
+  ServerName keep.muzx.cz
+  ProxyPass / http://127.0.0.1:3010/
+  ProxyPassReverse / http://127.0.0.1:3010/
+  SSLEngine on
+  SSLCertificateFile /etc/letsencrypt/live/keep.muzx.cz/fullchain.pem
+  SSLCertificateKeyFile /etc/letsencrypt/live/keep.muzx.cz/privkey.pem
+</VirtualHost>
+```
+
+2. Spusťte aplikaci:
+```bash
+npm run build
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+## Licence
+
+MIT

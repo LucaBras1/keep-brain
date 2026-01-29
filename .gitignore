@@ -32,6 +32,19 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# Prisma generated
+src/generated/
+
+# Python
+worker/venv/
+worker/__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
 
 # vercel
 .vercel
