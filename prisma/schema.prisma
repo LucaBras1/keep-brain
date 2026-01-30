@@ -72,6 +72,11 @@ enum SyncStatus {
   FAILED
 }
 
+enum AiProvider {
+  CLAUDE
+  OPENAI
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -93,6 +98,26 @@ model User {
 
   // Preferences
   theme           Theme     @default(SYSTEM)
+
+  // === AI SETTINGS ===
+  // Provider & Keys
+  aiProvider         AiProvider  @default(CLAUDE)
+  anthropicApiKey    String?     // Encrypted with AES-256
+  anthropicKeyIv     String?     // IV for AES decryption
+  openaiApiKey       String?     // Encrypted with AES-256
+  openaiKeyIv        String?     // IV for AES decryption
+
+  // Model selection
+  claudeModel        String      @default("claude-sonnet-4-20250514")
+  openaiModel        String      @default("gpt-4o")
+
+  // Processing settings
+  customPrompt       String?     @db.Text  // null = use default
+  aiTemperature      Float       @default(0.7)
+  autoProcessNotes   Boolean     @default(true)
+
+  // Status
+  aiEnabled          Boolean     @default(false)
 
   // Timestamps
   createdAt       DateTime  @default(now())

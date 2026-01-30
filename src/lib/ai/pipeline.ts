@@ -1,9 +1,9 @@
-import { getAnthropicClient } from "./client"
+import { getAiClientForUser } from "./client"
 import { db } from "@/lib/db"
 import type { Idea } from "@/generated/prisma"
 
-// AI Processing Prompt - přesně podle zadání
-const PROCESSING_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
+// Default AI Processing Prompt
+export const DEFAULT_PROCESSING_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
 
 VSTUP:
 Poznámka: """
@@ -106,6 +106,14 @@ export async function processNote(
     return { success: false, error: "Note not found" }
   }
 
+  // Get user settings for custom prompt
+  const user = await db.user.findUnique({
+    where: { id: note.userId },
+    select: {
+      customPrompt: true,
+    },
+  })
+
   // Update status to processing
   await db.note.update({
     where: { id: noteId },
@@ -113,28 +121,20 @@ export async function processNote(
   })
 
   try {
-    const anthropic = getAnthropicClient()
+    // Get AI client configured for the user
+    const aiClient = await getAiClientForUser(note.userId)
 
     // Prepare content
     const content = note.title
       ? `Název: ${note.title}\n\n${note.content}`
       : note.content
 
-    // Call Claude API
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: PROCESSING_PROMPT.replace("{{NOTE_CONTENT}}", content),
-        },
-      ],
-    })
+    // Use custom prompt or default
+    const promptTemplate = user?.customPrompt || DEFAULT_PROCESSING_PROMPT
+    const prompt = promptTemplate.replace("{{NOTE_CONTENT}}", content)
 
-    // Extract text response
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : ""
+    // Call AI API
+    const responseText = await aiClient.complete(prompt)
 
     // Parse JSON response
     let result: ProcessingResult

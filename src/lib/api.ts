@@ -243,3 +243,66 @@ export const statsApi = {
   export: () =>
     fetchAPI<{ data: unknown }>("/api/stats/export"),
 }
+
+// AI Settings Types
+export interface AiKeyStatus {
+  claude: { hasKey: boolean; model: string }
+  openai: { hasKey: boolean; model: string }
+  activeProvider: "CLAUDE" | "OPENAI"
+  aiEnabled: boolean
+}
+
+export interface AiSettings {
+  provider: "CLAUDE" | "OPENAI"
+  claudeModel: string
+  openaiModel: string
+  temperature: number
+  autoProcessNotes: boolean
+  customPrompt: string | null
+  defaultPrompt: string
+  aiEnabled: boolean
+  hasClaudeKey: boolean
+  hasOpenaiKey: boolean
+  availableModels: {
+    claude: { id: string; name: string }[]
+    openai: { id: string; name: string }[]
+  }
+}
+
+export interface AiSettingsUpdate {
+  provider?: "CLAUDE" | "OPENAI"
+  claudeModel?: string
+  openaiModel?: string
+  temperature?: number
+  autoProcessNotes?: boolean
+  customPrompt?: string | null
+}
+
+// Settings API
+export const settingsApi = {
+  // API Key management
+  getApiKeyStatus: () =>
+    fetchAPI<AiKeyStatus>("/api/settings/api-key"),
+
+  setApiKey: (data: { provider: "claude" | "openai"; apiKey: string }) =>
+    fetchAPI<{ success: boolean; message: string }>("/api/settings/api-key", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  deleteApiKey: (provider: "claude" | "openai") =>
+    fetchAPI<{ success: boolean; message: string }>(
+      `/api/settings/api-key?provider=${provider}`,
+      { method: "DELETE" }
+    ),
+
+  // AI Settings
+  getAiSettings: () =>
+    fetchAPI<AiSettings>("/api/settings/ai"),
+
+  updateAiSettings: (data: AiSettingsUpdate) =>
+    fetchAPI<{ success: boolean; settings: AiSettings }>("/api/settings/ai", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+}
