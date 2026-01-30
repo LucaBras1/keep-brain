@@ -21,6 +21,40 @@ from psycopg2.extras import RealDictCursor
 
 from keep_sync import KeepSync
 
+
+def categorize_error(error: Exception) -> str:
+    """
+    Kategorizuje chybu pro lepsí UX.
+    Vrací user-friendly chybovou zprávu.
+    """
+    error_str = str(error)
+
+    # Authentication errors
+    if 'BadAuthentication' in error_str:
+        return "BadAuthentication: Pristupovy token expiroval. Odpojte ucet a znovu pripojte pomoci App Password."
+    if 'LoginException' in error_str:
+        return "Prihlaseni selhalo. Zkontrolujte ze pouzivate App Password (ne bezne heslo)."
+    if 'authentication' in error_str.lower():
+        return "Chyba overeni. Zkuste odpojit a znovu pripojit ucet."
+
+    # Network errors
+    if 'network' in error_str.lower() or 'connection' in error_str.lower():
+        return "Chyba sitoveho pripojeni. Zkuste to pozdeji."
+    if 'timeout' in error_str.lower():
+        return "Spojeni vyprelo. Zkuste synchronizaci znovu."
+
+    # SSL/TLS errors
+    if 'ssl' in error_str.lower() or 'certificate' in error_str.lower():
+        return "Chyba SSL/TLS certifikatu. Kontaktujte podporu."
+
+    # Rate limiting
+    if 'rate' in error_str.lower() or 'limit' in error_str.lower() or '429' in error_str:
+        return "Prilis mnoho pozadavku. Pockejte par minut a zkuste znovu."
+
+    # Return original error if no category matches
+    return error_str
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -228,8 +262,9 @@ def process_sync_job(job_data: dict):
             logger.info(f"Sync completed for user {user_id}: {len(notes)} notes found")
 
     except Exception as e:
-        logger.error(f"Sync error for user {user_id}: {str(e)}")
-        update_user_sync_status(user_id, 'FAILED', str(e))
+        categorized_error = categorize_error(e)
+        logger.error(f"Sync error for user {user_id}: {categorized_error}")
+        update_user_sync_status(user_id, 'FAILED', categorized_error)
         raise
 
 

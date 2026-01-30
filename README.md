@@ -99,14 +99,43 @@ pm2 start ecosystem.config.js
 
 - ✅ Registrace/Login s JWT autentizací
 - ✅ Propojení Google Keep účtu
-- ✅ Automatická synchronizace poznámek
-- ✅ AI zpracování poznámek (Claude API)
+- ✅ Automatická synchronizace poznámek s real-time status polling
+- ✅ AI zpracování poznámek (Claude + OpenAI)
+- ✅ Multi-provider AI settings (vlastní API klíče)
 - ✅ Extrakce nápadů s kategorizací
 - ✅ Dashboard se statistikami
 - ✅ Filtry a fulltext vyhledávání
 - ✅ Ruční přidání poznámek a nápadů
 - ✅ JSON export dat
 - ✅ Dark/Light mode
+- ✅ User-friendly error messages pro sync chyby
+
+## Google Keep Sync
+
+### Jak to funguje
+
+1. **Připojení účtu**: Uživatel zadá Google email a heslo/App Password
+2. **Autentizace**: gkeepapi provede login a získá master token
+3. **Synchronizace**: Worker stáhne poznámky z Google Keep
+4. **Real-time status**: Frontend automaticky polluje status každé 2 sekundy během sync
+
+### App Password (vyžadováno pro 2FA účty)
+
+Pokud máte zapnuté dvoufázové ověření, musíte použít App Password:
+
+1. Jděte na [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. Vyberte "Jiná (vlastní název)" a zadejte "Keep Brain"
+3. Zkopírujte vygenerované heslo
+4. Použijte toto heslo místo běžného hesla
+
+### Troubleshooting
+
+| Chyba | Řešení |
+|-------|--------|
+| `BadAuthentication` | Master token expiroval. Odpojte účet a znovu připojte s App Password |
+| `LoginException` | Špatné heslo nebo chybí App Password pro 2FA účty |
+| `Network/Connection error` | Zkontrolujte internet, zkuste později |
+| `Rate limit` | Počkejte pár minut a zkuste znovu |
 
 ## API Endpoints
 

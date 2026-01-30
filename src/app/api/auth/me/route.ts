@@ -22,6 +22,7 @@ export async function GET() {
         syncEnabled: user.syncEnabled,
         lastSyncAt: user.lastSyncAt,
         syncStatus: user.syncStatus,
+        syncError: user.syncError,
       },
     })
   } catch (error) {

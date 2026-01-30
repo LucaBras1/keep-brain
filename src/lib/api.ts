@@ -55,6 +55,7 @@ export interface User {
   syncEnabled: boolean
   lastSyncAt: string | null
   syncStatus: "IDLE" | "SYNCING" | "SUCCESS" | "FAILED"
+  syncError: string | null
 }
 
 export interface Note {

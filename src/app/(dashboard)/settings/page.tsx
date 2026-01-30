@@ -40,13 +40,65 @@ import {
   Settings2,
   FileText,
   Sparkles,
+  XCircle,
+  ExternalLink,
 } from "lucide-react"
 import { format } from "date-fns"
 import { cs } from "date-fns/locale"
 
+function getSyncErrorMessage(error: string): string {
+  if (error.includes('BadAuthentication') || error.includes('resume')) {
+    return 'Pristupovy token ke Google Keep expiroval nebo je neplatny.'
+  }
+  if (error.includes('LoginException') || error.includes('authentication failed')) {
+    return 'Prihlaseni k Google Keep selhalo. Heslo je neplatne nebo je vyzadovano App Password.'
+  }
+  if (error.includes('network') || error.includes('connection')) {
+    return 'Nepodarilo se pripojit k serverum Google. Zkuste to pozdeji.'
+  }
+  return error
+}
+
+function getSyncErrorSolutions(error: string): string[] {
+  if (error.includes('BadAuthentication') || error.includes('resume') ||
+      error.includes('LoginException') || error.includes('authentication')) {
+    return [
+      'Odpojte ucet kliknutim na "Odpojit ucet"',
+      'Prejdete na myaccount.google.com -> Zabezpeceni -> Dvoufazove overeni -> Hesla aplikaci',
+      'Vygenerujte nove App Password pro "Keep Brain"',
+      'Znovu pripojte ucet pomoci App Password (ne bezneho hesla)'
+    ]
+  }
+  if (error.includes('network') || error.includes('connection')) {
+    return [
+      'Zkontrolujte pripojeni k internetu',
+      'Zkuste synchronizaci spustit znovu za par minut'
+    ]
+  }
+  return [
+    'Zkuste synchronizaci spustit znovu',
+    'Pokud problem pretrvava, odpojte a znovu pripojte ucet'
+  ]
+}
+
 export default function SettingsPage() {
   const { data: user } = useUser()
   const queryClient = useQueryClient()
+
+  // Polling pro sync status - automaticky refreshuje data kdyz sync probiha
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (user?.syncStatus === "SYNCING") {
+      interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ["user"] })
+      }, 2000) // refresh kazde 2 sekundy
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [user?.syncStatus, queryClient])
 
   // Google Keep state
   const [keepEmail, setKeepEmail] = useState("")
@@ -621,6 +673,41 @@ export default function SettingsPage() {
                   </>
                 )}
               </div>
+
+              {user.syncStatus === "FAILED" && user.syncError && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                    <div className="space-y-3">
+                      <div>
+                        <p className="font-medium text-destructive">Synchronizace selhala</p>
+                        <p className="text-sm mt-1">{getSyncErrorMessage(user.syncError)}</p>
+                      </div>
+                      <div className="text-sm">
+                        <p className="font-medium mb-2">Mozna reseni:</p>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          {getSyncErrorSolutions(user.syncError).map((solution, i) => (
+                            <li key={i}>{solution}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      {(user.syncError.includes('BadAuthentication') ||
+                        user.syncError.includes('authentication') ||
+                        user.syncError.includes('LoginException')) && (
+                        <a
+                          href="https://myaccount.google.com/apppasswords"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          Vytvorit App Password
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <Button

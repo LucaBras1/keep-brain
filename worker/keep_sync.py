@@ -50,16 +50,29 @@ class KeepSync:
             master_token: Previously obtained master token
 
         Returns:
-            True if resume successful, False otherwise
+            True if resume successful
+
+        Raises:
+            ValueError: If resume fails with descriptive error message
         """
         try:
             logger.info(f"Resuming session for {email}...")
             self.keep.resume(email, master_token)
             logger.info(f"Session resumed for {email}")
             return True
+        except gkeepapi.exception.LoginException as e:
+            error_str = str(e)
+            logger.error(f"LoginException during resume: {error_str}")
+            if 'BadAuthentication' in error_str:
+                raise ValueError(
+                    "BadAuthentication: Pristupovy token expiroval. "
+                    "Odpojte ucet a znovu se prihlaste pomoci App Password z Google Account."
+                )
+            raise ValueError(f"LoginException: {error_str}")
         except Exception as e:
-            logger.error(f"Failed to resume session: {str(e)}")
-            return False
+            error_str = str(e)
+            logger.error(f"Failed to resume session: {error_str}")
+            raise ValueError(f"Resume failed: {error_str}")
 
     def sync_notes(
         self,
@@ -80,9 +93,8 @@ class KeepSync:
         Returns:
             List of note dictionaries
         """
-        # Resume session
-        if not self.resume(email, master_token):
-            raise ValueError("Failed to resume Google Keep session")
+        # Resume session (raises ValueError with descriptive message on failure)
+        self.resume(email, master_token)
 
         # Sync with server
         logger.info("Syncing with Google Keep...")
