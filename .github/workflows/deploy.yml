@@ -1,0 +1,50 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd /var/www/keep-brain
+
+            echo "=== Pulling latest changes ==="
+            git pull origin master
+
+            echo "=== Installing dependencies ==="
+            npm ci --production=false
+
+            echo "=== Generating Prisma client ==="
+            npx prisma generate
+
+            echo "=== Building Next.js ==="
+            export NODE_OPTIONS="--max-old-space-size=4096"
+            npm run build
+
+            echo "=== Updating Python worker ==="
+            cd worker
+            source venv/bin/activate
+            pip install -r requirements.txt --quiet
+            cd ..
+
+            echo "=== Restarting PM2 processes ==="
+            pm2 restart keep-brain --update-env
+            pm2 restart keep-brain-worker --update-env
+
+            echo "=== Checking status ==="
+            pm2 status
+
+            echo "=== Deploy completed! ==="
