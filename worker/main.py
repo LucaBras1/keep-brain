@@ -279,36 +279,56 @@ def main():
     r = get_redis_connection()
     logger.info(f"Connected to Redis: {REDIS_URL}")
 
+    queue_prefix = f'bull:{KEEP_SYNC_QUEUE}'
+
     while True:
         try:
-            # Wait for jobs from the queue (blocking pop)
-            result = r.brpop(f'bull:{KEEP_SYNC_QUEUE}:wait', timeout=5)
+            # BullMQ v5+ uses sorted sets for waiting jobs
+            # BZPOPMIN blocks until a job is available (timeout in seconds)
+            result = r.bzpopmin(f'{queue_prefix}:waiting', timeout=5)
 
             if result:
-                queue_name, job_id = result
+                # result = (key, job_id, score)
+                _, job_id, _ = result
 
-                # Get job data
-                job_key = f'bull:{KEEP_SYNC_QUEUE}:{job_id}'
-                job_json = r.get(job_key)
+                # BullMQ stores job data as hash with 'data' field containing JSON
+                job_key = f'{queue_prefix}:{job_id}'
+                job_data_json = r.hget(job_key, 'data')
 
-                if job_json:
-                    job = json.loads(job_json)
-                    job_data = job.get('data', {})
+                if job_data_json:
+                    job_data = json.loads(job_data_json)
 
                     logger.info(f"Processing job {job_id}")
 
                     try:
+                        # Move job to active state
+                        r.zadd(f'{queue_prefix}:active', {job_id: time.time()})
+
                         process_sync_job(job_data)
 
-                        # Mark job as completed
-                        r.lpush(f'bull:{KEEP_SYNC_QUEUE}:completed', job_id)
-                        r.delete(job_key)
+                        # Mark job as completed in BullMQ format
+                        # Update job state in hash
+                        r.hset(job_key, 'finishedOn', int(time.time() * 1000))
+                        r.hset(job_key, 'processedOn', int(time.time() * 1000))
+
+                        # Move to completed set
+                        r.zrem(f'{queue_prefix}:active', job_id)
+                        r.zadd(f'{queue_prefix}:completed', {job_id: time.time()})
+
+                        logger.info(f"Job {job_id} completed successfully")
 
                     except Exception as e:
                         logger.error(f"Job {job_id} failed: {str(e)}")
 
-                        # Mark job as failed
-                        r.lpush(f'bull:{KEEP_SYNC_QUEUE}:failed', job_id)
+                        # Move to failed set
+                        r.zrem(f'{queue_prefix}:active', job_id)
+                        r.zadd(f'{queue_prefix}:failed', {job_id: time.time()})
+
+                        # Store error in job hash
+                        r.hset(job_key, 'failedReason', str(e))
+                        r.hset(job_key, 'finishedOn', int(time.time() * 1000))
+                else:
+                    logger.warning(f"Job {job_id} has no data, skipping")
 
         except redis.ConnectionError as e:
             logger.error(f"Redis connection error: {str(e)}")

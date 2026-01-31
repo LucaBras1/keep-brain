@@ -14,10 +14,21 @@ async function fetchAPI<T>(
     },
   })
 
-  const data = await res.json()
+  let data
+  try {
+    data = await res.json()
+  } catch {
+    // Response is not JSON
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+    }
+    return {} as T
+  }
 
   if (!res.ok) {
-    throw new Error(data.error || "Něco se pokazilo")
+    // Prefer server error message, fallback to status text
+    const errorMessage = data.error || data.message || `HTTP ${res.status}: ${res.statusText}`
+    throw new Error(errorMessage)
   }
 
   return data

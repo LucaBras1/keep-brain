@@ -1,10 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useUser } from "@/hooks/use-auth"
 import { keepApi, settingsApi } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
+
+// Sync timeout - 5 minut
+const SYNC_TIMEOUT_MS = 5 * 60 * 1000
 import {
   Card,
   CardContent,
@@ -85,20 +88,46 @@ export default function SettingsPage() {
   const { data: user } = useUser()
   const queryClient = useQueryClient()
 
+  // Track when sync started for timeout detection
+  const syncStartedRef = useRef<number | null>(null)
+  const [syncTimedOut, setSyncTimedOut] = useState(false)
+
   // Polling pro sync status - automaticky refreshuje data kdyz sync probiha
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
 
     if (user?.syncStatus === "SYNCING") {
+      // Record when sync started (if not already set)
+      if (!syncStartedRef.current) {
+        syncStartedRef.current = Date.now()
+        setSyncTimedOut(false)
+      }
+
       interval = setInterval(() => {
+        // Check for timeout
+        if (syncStartedRef.current && Date.now() - syncStartedRef.current > SYNC_TIMEOUT_MS) {
+          setSyncTimedOut(true)
+          syncStartedRef.current = null
+          toast({
+            title: "Synchronizace vyprsela",
+            description: "Synchronizace trvala prilis dlouho. Zkuste to znovu nebo zkontrolujte pripojeni.",
+            variant: "destructive",
+          })
+        }
         queryClient.invalidateQueries({ queryKey: ["user"] })
       }, 2000) // refresh kazde 2 sekundy
+    } else {
+      // Reset tracking when sync is not active
+      syncStartedRef.current = null
+      if (syncTimedOut) {
+        setSyncTimedOut(false)
+      }
     }
 
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [user?.syncStatus, queryClient])
+  }, [user?.syncStatus, queryClient, syncTimedOut])
 
   // Google Keep state
   const [keepEmail, setKeepEmail] = useState("")
@@ -627,11 +656,19 @@ export default function SettingsPage() {
                     Stav synchronizace
                   </span>
                   <div className="flex items-center gap-2">
-                    {user.syncStatus === "SYNCING" && (
+                    {user.syncStatus === "SYNCING" && !syncTimedOut && (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
                         <span className="text-sm text-blue-500">
                           Synchronizuje se...
+                        </span>
+                      </>
+                    )}
+                    {user.syncStatus === "SYNCING" && syncTimedOut && (
+                      <>
+                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        <span className="text-sm text-yellow-500">
+                          Timeout - zkuste znovu
                         </span>
                       </>
                     )}
@@ -711,15 +748,25 @@ export default function SettingsPage() {
 
               <div className="flex gap-3">
                 <Button
-                  onClick={() => syncMutation.mutate()}
+                  onClick={() => {
+                    // Reset timeout state when manually restarting
+                    setSyncTimedOut(false)
+                    syncStartedRef.current = null
+                    syncMutation.mutate()
+                  }}
                   disabled={
-                    syncMutation.isPending || user.syncStatus === "SYNCING"
+                    syncMutation.isPending || (user.syncStatus === "SYNCING" && !syncTimedOut)
                   }
                 >
-                  {syncMutation.isPending || user.syncStatus === "SYNCING" ? (
+                  {syncMutation.isPending || (user.syncStatus === "SYNCING" && !syncTimedOut) ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Synchronizuje se...
+                    </>
+                  ) : syncTimedOut ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Zkusit znovu
                     </>
                   ) : (
                     <>
