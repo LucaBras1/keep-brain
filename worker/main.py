@@ -283,13 +283,13 @@ def main():
 
     while True:
         try:
-            # BullMQ v5+ uses sorted sets for waiting jobs
-            # BZPOPMIN blocks until a job is available (timeout in seconds)
-            result = r.bzpopmin(f'{queue_prefix}:waiting', timeout=5)
+            # BullMQ uses list for waiting jobs
+            # BRPOP blocks until a job is available (timeout in seconds)
+            result = r.brpop(f'{queue_prefix}:wait', timeout=5)
 
             if result:
-                # result = (key, job_id, score)
-                _, job_id, _ = result
+                # result = (key, job_id)
+                _, job_id = result
 
                 # BullMQ stores job data as hash with 'data' field containing JSON
                 job_key = f'{queue_prefix}:{job_id}'
