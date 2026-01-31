@@ -9,6 +9,7 @@ import sys
 import json
 import time
 import logging
+import secrets
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ load_dotenv(dotenv_path='../.env.local')
 import redis
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import gpsoauth
 
 from keep_sync import KeepSync
 
@@ -105,6 +107,47 @@ def update_user_sync_status(user_id: str, status: str, error: str = None):
         conn.close()
 
 
+def generate_android_id() -> str:
+    """Generate a random 16-character hex Android ID."""
+    return secrets.token_hex(8)
+
+
+def exchange_oauth_token(email: str, oauth_token: str) -> str:
+    """
+    Exchange OAuth token for master token using gpsoauth.
+
+    Args:
+        email: Google account email
+        oauth_token: OAuth token from browser cookie
+
+    Returns:
+        Master token string
+
+    Raises:
+        ValueError: If token exchange fails
+    """
+    android_id = generate_android_id()
+
+    try:
+        logger.info(f"Exchanging OAuth token for {email}...")
+        result = gpsoauth.exchange_token(email, oauth_token, android_id)
+
+        if 'Token' in result:
+            logger.info(f"Token exchange successful for {email}")
+            return result['Token']
+        elif 'Error' in result:
+            error_msg = result.get('Error', 'Unknown error')
+            logger.error(f"Token exchange failed: {error_msg}")
+            raise ValueError(f"Google rejected token: {error_msg}")
+        else:
+            logger.error(f"Unexpected response: {result}")
+            raise ValueError("Unexpected response from Google")
+
+    except Exception as e:
+        logger.error(f"Token exchange error: {str(e)}")
+        raise ValueError(f"Failed to exchange token: {str(e)}")
+
+
 def process_sync_job(job_data: dict):
     """Process a sync job from the queue."""
     user_id = job_data.get('userId')
@@ -113,8 +156,39 @@ def process_sync_job(job_data: dict):
     logger.info(f"Processing {action} job for user {user_id}")
 
     try:
-        if action == 'authenticate':
-            # Get credentials from job data
+        if action == 'exchange-token':
+            # New OAuth token exchange flow
+            email = job_data.get('email')
+            oauth_token = job_data.get('oauthToken')
+
+            if not email or not oauth_token:
+                raise ValueError("Missing email or OAuth token")
+
+            # Exchange OAuth token for master token
+            master_token = exchange_oauth_token(email, oauth_token)
+
+            if master_token:
+                # Store master token in database
+                conn = get_db_connection()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE "User"
+                            SET "keepMasterToken" = %s,
+                                "syncStatus" = 'IDLE',
+                                "syncError" = NULL
+                            WHERE id = %s
+                        """, (master_token, user_id))
+                        conn.commit()
+                finally:
+                    conn.close()
+
+                logger.info(f"Successfully obtained master token for user {user_id}")
+            else:
+                raise ValueError("Failed to get master token")
+
+        elif action == 'authenticate':
+            # Legacy password-based authentication (deprecated, likely won't work)
             email = job_data.get('email')
             password = job_data.get('password')
 

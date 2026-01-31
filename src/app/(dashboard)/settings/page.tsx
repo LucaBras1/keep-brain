@@ -131,7 +131,7 @@ export default function SettingsPage() {
 
   // Google Keep state
   const [keepEmail, setKeepEmail] = useState("")
-  const [keepPassword, setKeepPassword] = useState("")
+  const [keepOauthToken, setKeepOauthToken] = useState("")
 
   // AI Settings state
   const [claudeApiKey, setClaudeApiKey] = useState("")
@@ -155,15 +155,15 @@ export default function SettingsPage() {
 
   // Keep mutations
   const connectMutation = useMutation({
-    mutationFn: () => keepApi.connect({ email: keepEmail, password: keepPassword }),
+    mutationFn: () => keepApi.connect({ email: keepEmail, oauthToken: keepOauthToken }),
     onSuccess: () => {
       toast({
         title: "Google Keep pripojen",
-        description: "Ucet byl uspesne propojen. Muzete spustit synchronizaci.",
+        description: "Token se vymeni na pozadi. Pockejte na dokonceni.",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
       setKeepEmail("")
-      setKeepPassword("")
+      setKeepOauthToken("")
     },
     onError: (error: Error) => {
       toast({
@@ -792,18 +792,26 @@ export default function SettingsPage() {
               <div className="rounded-lg border border-dashed p-4 bg-muted/50">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Dulezite upozorneni</p>
-                    <p className="text-sm text-muted-foreground">
-                      Google Keep nema oficialni API. Pro pristup k poznamkam
-                      potrebujeme vase prihlasoovaci udaje, ktere se pouziji
-                      jednorazove k ziskani pristupoveho tokenu. Heslo neni
-                      ukladano.
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Pokud mate dvoufaktorove overeni, pouzijte App Password z
-                      Google Account Settings.
-                    </p>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Jak ziskat OAuth Token</p>
+                    <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                      <li>
+                        Otevrete{" "}
+                        <a
+                          href="https://accounts.google.com/EmbeddedSetup"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          Google EmbeddedSetup
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </li>
+                      <li>Prihlaste se do Google uctu</li>
+                      <li>Otevrete DevTools (F12) → Application → Cookies</li>
+                      <li>Najdete cookie <code className="bg-muted px-1 rounded">oauth_token</code></li>
+                      <li>Zkopirujte hodnotu a vlozte nize</li>
+                    </ol>
                   </div>
                 </div>
               </div>
@@ -828,19 +836,20 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="keepPassword">
-                    Heslo (nebo App Password)
+                  <Label htmlFor="keepOauthToken">
+                    OAuth Token (z cookie)
                   </Label>
                   <Input
-                    id="keepPassword"
+                    id="keepOauthToken"
                     type="password"
-                    value={keepPassword}
-                    onChange={(e) => setKeepPassword(e.target.value)}
+                    placeholder="oauth2_4/..."
+                    value={keepOauthToken}
+                    onChange={(e) => setKeepOauthToken(e.target.value)}
                     required
                     disabled={connectMutation.isPending}
                   />
                 </div>
-                <Button type="submit" disabled={connectMutation.isPending}>
+                <Button type="submit" disabled={connectMutation.isPending || !keepEmail || !keepOauthToken}>
                   {connectMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

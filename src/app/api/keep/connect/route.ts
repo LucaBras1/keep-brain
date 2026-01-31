@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { encrypt } from "@/lib/encryption"
 import { keepConnectSchema, getZodErrorMessage } from "@/lib/validations"
 import { addKeepSyncJob } from "@/lib/queue"
 
@@ -22,41 +21,40 @@ export async function POST(request: Request) {
       )
     }
 
-    const { email, password } = result.data
+    const { email, oauthToken } = result.data
 
-    // In a real implementation, we would:
-    // 1. Send credentials to Python worker via Redis queue
-    // 2. Python worker uses gkeepapi to get master token
-    // 3. Python worker sends back the token via Redis
-    // 4. We encrypt and store the token
-
-    // For now, we'll simulate storing credentials
-    // The actual authentication will happen when Python worker starts
-
-    // Encrypt the password temporarily (in production, this would be the master token)
-    const { encrypted, iv } = encrypt(password)
-
+    // Store email temporarily and set status to SYNCING
+    // The actual token exchange will happen in the Python worker
     await db.user.update({
       where: { id: user.id },
       data: {
         keepEmail: email,
-        keepMasterToken: encrypted,
-        keepTokenIv: iv,
-        syncStatus: "IDLE",
+        syncStatus: "SYNCING",
       },
     })
 
-    // Add job to queue for authentication
+    // Add job to queue for OAuth token exchange
     try {
       await addKeepSyncJob({
         userId: user.id,
-        action: "authenticate",
+        action: "exchange-token",
         email,
-        password,
+        oauthToken,
       })
     } catch (queueError) {
       console.warn("Queue not available:", queueError)
-      // Continue without queue - authentication will happen on first sync
+      // Revert status if queue failed
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          syncStatus: "FAILED",
+          syncError: "Worker queue není dostupná. Zkuste to později.",
+        },
+      })
+      return NextResponse.json(
+        { error: "Worker queue není dostupná. Zkuste to později." },
+        { status: 503 }
+      )
     }
 
     return NextResponse.json({ success: true })

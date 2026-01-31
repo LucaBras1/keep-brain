@@ -224,7 +224,7 @@ export const ideasApi = {
 
 // Keep API
 export const keepApi = {
-  connect: (data: { email: string; password: string }) =>
+  connect: (data: { email: string; oauthToken: string }) =>
     fetchAPI<{ success: boolean }>("/api/keep/connect", {
       method: "POST",
       body: JSON.stringify(data),

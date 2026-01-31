@@ -22,7 +22,7 @@ export const loginSchema = z.object({
 
 export const keepConnectSchema = z.object({
   email: z.string().email("Neplatný Google email"),
-  password: z.string().min(1, "Heslo je povinné"),
+  oauthToken: z.string().min(10, "OAuth token je povinný"),
 })
 
 export const ideaSchema = z.object({
