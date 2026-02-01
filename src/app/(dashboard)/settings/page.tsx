@@ -31,6 +31,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import {
   Cloud,
   CloudOff,
   Loader2,
@@ -132,6 +138,8 @@ export default function SettingsPage() {
   // Google Keep state
   const [keepEmail, setKeepEmail] = useState("")
   const [keepOauthToken, setKeepOauthToken] = useState("")
+  const [keepAppPassword, setKeepAppPassword] = useState("")
+  const [authMethod, setAuthMethod] = useState<"password" | "oauth">("password")
 
   // AI Settings state
   const [claudeApiKey, setClaudeApiKey] = useState("")
@@ -164,6 +172,26 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["user"] })
       setKeepEmail("")
       setKeepOauthToken("")
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Chyba pri pripojovani",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  const connectPasswordMutation = useMutation({
+    mutationFn: () => keepApi.connectWithPassword({ email: keepEmail, appPassword: keepAppPassword }),
+    onSuccess: () => {
+      toast({
+        title: "Google Keep pripojen",
+        description: "Probiha overeni. Pockejte na dokonceni.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["user"] })
+      setKeepEmail("")
+      setKeepAppPassword("")
     },
     onError: (error: Error) => {
       toast({
@@ -788,79 +816,180 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <>
-              <div className="rounded-lg border border-dashed p-4 bg-muted/50">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Jak ziskat OAuth Token</p>
-                    <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                      <li>
-                        Otevrete{" "}
-                        <a
-                          href="https://accounts.google.com/EmbeddedSetup"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          Google EmbeddedSetup
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </li>
-                      <li>Prihlaste se do Google uctu</li>
-                      <li>Otevrete DevTools (F12) → Application → Cookies</li>
-                      <li>Najdete cookie <code className="bg-muted px-1 rounded">oauth_token</code></li>
-                      <li>Zkopirujte hodnotu a vlozte nize</li>
-                    </ol>
+            <Tabs value={authMethod} onValueChange={(v: string) => setAuthMethod(v as "password" | "oauth")} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="password">App Password (doporuceno)</TabsTrigger>
+                <TabsTrigger value="oauth">OAuth Token</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="password" className="space-y-4">
+                <div className="rounded-lg border border-dashed p-4 bg-muted/50">
+                  <div className="flex items-start gap-3">
+                    <Key className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Jak vytvorit App Password</p>
+                      <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                        <li>
+                          Prejdete na{" "}
+                          <a
+                            href="https://myaccount.google.com/security"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            Google ucet → Zabezpeceni
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </li>
+                        <li>Zapnete dvoufazove overeni (pokud jeste neni)</li>
+                        <li>
+                          Prejdete na{" "}
+                          <a
+                            href="https://myaccount.google.com/apppasswords"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            Hesla aplikaci
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </li>
+                        <li>Vytvorte nove heslo aplikace s nazvem &quot;Keep Brain&quot;</li>
+                        <li>Zkopirujte vygenerovane heslo (16 znaku)</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  connectMutation.mutate()
-                }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="keepEmail">Google Email</Label>
-                  <Input
-                    id="keepEmail"
-                    type="email"
-                    placeholder="vas@gmail.com"
-                    value={keepEmail}
-                    onChange={(e) => setKeepEmail(e.target.value)}
-                    required
-                    disabled={connectMutation.isPending}
-                  />
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    connectPasswordMutation.mutate()
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="keepEmailPassword">Google Email</Label>
+                    <Input
+                      id="keepEmailPassword"
+                      type="email"
+                      placeholder="vas@gmail.com"
+                      value={keepEmail}
+                      onChange={(e) => setKeepEmail(e.target.value)}
+                      required
+                      disabled={connectPasswordMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="keepAppPassword">
+                      App Password (16 znaku)
+                    </Label>
+                    <Input
+                      id="keepAppPassword"
+                      type="password"
+                      placeholder="xxxx xxxx xxxx xxxx"
+                      value={keepAppPassword}
+                      onChange={(e) => setKeepAppPassword(e.target.value)}
+                      required
+                      disabled={connectPasswordMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Muzete zadat s mezerami nebo bez mezer
+                    </p>
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={connectPasswordMutation.isPending || !keepEmail || !keepAppPassword}
+                  >
+                    {connectPasswordMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Pripojovani...
+                      </>
+                    ) : (
+                      "Pripojit Google Keep"
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="oauth" className="space-y-4">
+                <div className="rounded-lg border border-dashed p-4 bg-muted/50">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Jak ziskat OAuth Token</p>
+                      <p className="text-xs text-muted-foreground">
+                        Tato metoda muze byt blokovana ad blockerem. Pouzijte App Password pokud nefunguje.
+                      </p>
+                      <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                        <li>
+                          Otevrete{" "}
+                          <a
+                            href="https://accounts.google.com/EmbeddedSetup"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            Google EmbeddedSetup
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </li>
+                        <li>Prihlaste se do Google uctu</li>
+                        <li>Otevrete DevTools (F12) → Application → Cookies</li>
+                        <li>Najdete cookie <code className="bg-muted px-1 rounded">oauth_token</code></li>
+                        <li>Zkopirujte hodnotu a vlozte nize</li>
+                      </ol>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="keepOauthToken">
-                    OAuth Token (z cookie)
-                  </Label>
-                  <Input
-                    id="keepOauthToken"
-                    type="password"
-                    placeholder="oauth2_4/..."
-                    value={keepOauthToken}
-                    onChange={(e) => setKeepOauthToken(e.target.value)}
-                    required
-                    disabled={connectMutation.isPending}
-                  />
-                </div>
-                <Button type="submit" disabled={connectMutation.isPending || !keepEmail || !keepOauthToken}>
-                  {connectMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Pripojovani...
-                    </>
-                  ) : (
-                    "Pripojit Google Keep"
-                  )}
-                </Button>
-              </form>
-            </>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    connectMutation.mutate()
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="keepEmail">Google Email</Label>
+                    <Input
+                      id="keepEmail"
+                      type="email"
+                      placeholder="vas@gmail.com"
+                      value={keepEmail}
+                      onChange={(e) => setKeepEmail(e.target.value)}
+                      required
+                      disabled={connectMutation.isPending}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="keepOauthToken">
+                      OAuth Token (z cookie)
+                    </Label>
+                    <Input
+                      id="keepOauthToken"
+                      type="password"
+                      placeholder="oauth2_4/..."
+                      value={keepOauthToken}
+                      onChange={(e) => setKeepOauthToken(e.target.value)}
+                      required
+                      disabled={connectMutation.isPending}
+                    />
+                  </div>
+                  <Button type="submit" disabled={connectMutation.isPending || !keepEmail || !keepOauthToken}>
+                    {connectMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Pripojovani...
+                      </>
+                    ) : (
+                      "Pripojit Google Keep"
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>

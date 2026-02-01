@@ -230,6 +230,12 @@ export const keepApi = {
       body: JSON.stringify(data),
     }),
 
+  connectWithPassword: (data: { email: string; appPassword: string }) =>
+    fetchAPI<{ success: boolean }>("/api/keep/connect", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   disconnect: () =>
     fetchAPI<{ success: boolean }>("/api/keep/disconnect", {
       method: "DELETE",

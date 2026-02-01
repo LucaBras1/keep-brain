@@ -25,6 +25,17 @@ export const keepConnectSchema = z.object({
   oauthToken: z.string().min(10, "OAuth token je povinný"),
 })
 
+export const keepConnectPasswordSchema = z.object({
+  email: z.string().email("Neplatný Google email"),
+  appPassword: z.string()
+    .min(16, "App Password musí mít 16 znaků")
+    .max(19, "App Password je příliš dlouhé")
+    .refine(
+      (val) => val.replace(/\s/g, '').length === 16,
+      "App Password musí mít přesně 16 znaků (bez mezer)"
+    ),
+})
+
 export const ideaSchema = z.object({
   title: z.string().min(1, "Název je povinný").max(255),
   description: z.string().min(1, "Popis je povinný"),
@@ -56,5 +67,6 @@ export const noteSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type KeepConnectInput = z.infer<typeof keepConnectSchema>
+export type KeepConnectPasswordInput = z.infer<typeof keepConnectPasswordSchema>
 export type IdeaInput = z.infer<typeof ideaSchema>
 export type NoteInput = z.infer<typeof noteSchema>

@@ -152,6 +152,46 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
         raise ValueError(f"Failed to exchange token: {str(e)}")
 
 
+def master_login_with_password(email: str, app_password: str) -> str:
+    """
+    Login using email + App Password via gpsoauth.perform_master_login.
+
+    Args:
+        email: Google account email
+        app_password: App Password (16 characters without spaces)
+
+    Returns:
+        Master token string
+
+    Raises:
+        ValueError: If login fails
+    """
+    android_id = generate_android_id()
+
+    try:
+        logger.info(f"Performing master login for {email}...")
+        result = gpsoauth.perform_master_login(email, app_password, android_id)
+
+        if 'Token' in result:
+            logger.info(f"Master login successful for {email}")
+            return result['Token']
+        elif 'Error' in result:
+            error_msg = result.get('Error', 'Unknown error')
+            logger.error(f"Master login failed: {error_msg}")
+            if 'BadAuthentication' in error_msg:
+                raise ValueError("Neplatne App Password. Zkontrolujte, ze pouzivate spravne App Password z Google uctu.")
+            raise ValueError(f"Prihlaseni selhalo: {error_msg}")
+        else:
+            logger.error(f"Unexpected response: {result}")
+            raise ValueError("Neocekavana odpoved od Google")
+
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Master login error: {str(e)}")
+        raise ValueError(f"Prihlaseni selhalo: {str(e)}")
+
+
 def process_sync_job(job_data: dict):
     """Process a sync job from the queue."""
     user_id = job_data.get('userId')
@@ -188,6 +228,37 @@ def process_sync_job(job_data: dict):
                     conn.close()
 
                 logger.info(f"Successfully obtained master token for user {user_id}")
+            else:
+                raise ValueError("Failed to get master token")
+
+        elif action == 'login-password':
+            # App Password based authentication via gpsoauth.perform_master_login
+            email = job_data.get('email')
+            app_password = job_data.get('appPassword')
+
+            if not email or not app_password:
+                raise ValueError("Missing email or App Password for authentication")
+
+            # Authenticate using App Password and get master token
+            master_token = master_login_with_password(email, app_password)
+
+            if master_token:
+                # Store master token in database
+                conn = get_db_connection()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE "User"
+                            SET "keepMasterToken" = %s,
+                                "syncStatus" = 'IDLE',
+                                "syncError" = NULL
+                            WHERE id = %s
+                        """, (master_token, user_id))
+                        conn.commit()
+                finally:
+                    conn.close()
+
+                logger.info(f"Successfully authenticated user {user_id} with App Password")
             else:
                 raise ValueError("Failed to get master token")
 
