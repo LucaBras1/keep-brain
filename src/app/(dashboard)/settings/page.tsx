@@ -825,10 +825,10 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <Tabs value={authMethod} onValueChange={(v: string) => setAuthMethod(v as "password" | "oauth")} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="password">App Password (doporuceno)</TabsTrigger>
-                <TabsTrigger value="oauth">OAuth Token</TabsTrigger>
+            <Tabs value={authMethod} onValueChange={(v: string) => setAuthMethod(v as "password" | "oauth")}>
+              <TabsList className="w-full mb-4">
+                <TabsTrigger value="password" className="flex-1">App Password (doporuceno)</TabsTrigger>
+                <TabsTrigger value="oauth" className="flex-1">OAuth Token</TabsTrigger>
               </TabsList>
 
               <TabsContent value="password" className="space-y-4">
