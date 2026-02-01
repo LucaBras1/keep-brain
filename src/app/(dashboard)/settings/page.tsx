@@ -146,6 +146,7 @@ export default function SettingsPage() {
   const [openaiApiKey, setOpenaiApiKey] = useState("")
   const [useCustomPrompt, setUseCustomPrompt] = useState(false)
   const [customPromptText, setCustomPromptText] = useState("")
+  const [localTemperature, setLocalTemperature] = useState(0.7)
 
   // Fetch AI settings
   const { data: aiSettings, isLoading: isLoadingAiSettings } = useQuery({
@@ -160,6 +161,13 @@ export default function SettingsPage() {
       setCustomPromptText(aiSettings.customPrompt || aiSettings.defaultPrompt)
     }
   }, [aiSettings])
+
+  // Sync temperature with server value
+  useEffect(() => {
+    if (aiSettings?.temperature !== undefined) {
+      setLocalTemperature(aiSettings.temperature)
+    }
+  }, [aiSettings?.temperature])
 
   // Keep mutations
   const connectMutation = useMutation({
@@ -546,14 +554,15 @@ export default function SettingsPage() {
                     Temperature
                   </Label>
                   <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                    {aiSettings?.temperature?.toFixed(1) || "0.7"}
+                    {localTemperature.toFixed(1)}
                   </span>
                 </div>
                 <Slider
-                  value={[aiSettings?.temperature || 0.7]}
+                  value={[localTemperature]}
                   min={0}
                   max={1}
                   step={0.1}
+                  onValueChange={(value) => setLocalTemperature(value[0])}
                   onValueCommit={handleTemperatureChange}
                   className="w-full"
                 />
