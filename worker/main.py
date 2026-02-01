@@ -13,8 +13,9 @@ import secrets
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables - try .env.local first, then .env
 load_dotenv(dotenv_path='../.env.local')
+load_dotenv(dotenv_path='../.env')
 
 import redis
 import psycopg2
