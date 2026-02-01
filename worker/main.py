@@ -13,9 +13,12 @@ import secrets
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables - try .env.local first, then .env
-load_dotenv(dotenv_path='../.env.local')
-load_dotenv(dotenv_path='../.env')
+# Load environment variables - try multiple locations
+# PM2 runs from project root, standalone runs from worker dir
+load_dotenv(dotenv_path='.env.local')  # project root
+load_dotenv(dotenv_path='.env')        # project root
+load_dotenv(dotenv_path='../.env.local')  # from worker dir
+load_dotenv(dotenv_path='../.env')        # from worker dir
 
 import redis
 import psycopg2
