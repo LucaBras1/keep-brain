@@ -39,11 +39,12 @@ function getAiProcessingQueue(): Queue {
 
 export interface KeepSyncJob {
   userId: string
-  action: "authenticate" | "sync" | "exchange-token" | "login-password"
+  action: "authenticate" | "sync" | "exchange-token" | "login-password" | "login-token"
   email?: string
   password?: string
   oauthToken?: string
   appPassword?: string
+  masterToken?: string
 }
 
 export interface AiProcessingJob {

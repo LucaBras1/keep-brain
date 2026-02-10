@@ -36,6 +36,11 @@ export const keepConnectPasswordSchema = z.object({
     ),
 })
 
+export const keepConnectTokenSchema = z.object({
+  email: z.string().email("Neplatny Google email"),
+  masterToken: z.string().min(10, "Master token je povinny"),
+})
+
 export const ideaSchema = z.object({
   title: z.string().min(1, "Název je povinný").max(255),
   description: z.string().min(1, "Popis je povinný"),
@@ -68,5 +73,6 @@ export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type KeepConnectInput = z.infer<typeof keepConnectSchema>
 export type KeepConnectPasswordInput = z.infer<typeof keepConnectPasswordSchema>
+export type KeepConnectTokenInput = z.infer<typeof keepConnectTokenSchema>
 export type IdeaInput = z.infer<typeof ideaSchema>
 export type NoteInput = z.infer<typeof noteSchema>

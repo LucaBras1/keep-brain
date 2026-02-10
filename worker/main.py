@@ -38,15 +38,15 @@ def categorize_error(error: Exception) -> str:
 
     # Authentication errors
     if 'BadAuthentication' in error_str:
-        return "BadAuthentication: Pristupovy token expiroval. Odpojte ucet a znovu pripojte pomoci App Password."
+        return "BadAuthentication: Pristupovy token expiroval. Odpojte ucet a znovu pripojte pomoci OAuth Token."
     if 'UNKNOWN_ERR' in error_str:
-        return "UNKNOWN_ERR: Google odmitl prihlaseni. Zkuste vygenerovat nove App Password, nebo pouzijte OAuth Token."
+        return "UNKNOWN_ERR: Google odmitl prihlaseni. Pouzijte metodu OAuth Token pro pripojeni."
     if 'NeedsBrowser' in error_str:
-        return "NeedsBrowser: Google vyzaduje overeni pres prohlizec. Zapnete dvoufazove overeni a pouzijte App Password."
+        return "NeedsBrowser: Google vyzaduje overeni pres prohlizec. Pouzijte metodu OAuth Token."
     if 'LoginException' in error_str:
-        return "Prihlaseni selhalo. Zkontrolujte ze pouzivate App Password (ne bezne heslo)."
+        return "Prihlaseni selhalo. Pouzijte metodu OAuth Token pro pripojeni."
     if 'authentication' in error_str.lower():
-        return "Chyba overeni. Zkuste odpojit a znovu pripojit ucet."
+        return "Chyba overeni. Zkuste odpojit a znovu pripojit ucet pomoci OAuth Token."
 
     # Network errors
     if 'network' in error_str.lower() or 'connection' in error_str.lower():
@@ -189,17 +189,17 @@ def master_login_with_password(email: str, app_password: str) -> str:
         if 'NeedsBrowser' in error_str:
             raise ValueError(
                 "NeedsBrowser: Google vyzaduje overeni pres prohlizec. "
-                "Zapnete dvoufazove overeni a pouzijte App Password."
+                "Pouzijte metodu OAuth Token pro pripojeni."
             )
         if 'BadAuthentication' in error_str:
             raise ValueError(
-                "BadAuthentication: Neplatne App Password. "
-                "Zkontrolujte, ze pouzivate spravne App Password z Google uctu."
+                "BadAuthentication: Neplatne prihlaseni. "
+                "Pouzijte metodu OAuth Token pro pripojeni."
             )
         if 'UNKNOWN_ERR' in error_str:
             raise ValueError(
                 "UNKNOWN_ERR: Google odmitl prihlaseni. "
-                "Zkuste vygenerovat nove App Password."
+                "App Password metoda jiz nefunguje. Pouzijte OAuth Token."
             )
         raise ValueError(f"Prihlaseni selhalo: {error_str}")
     except ValueError:
@@ -247,6 +247,36 @@ def process_sync_job(job_data: dict):
                 logger.info(f"Successfully obtained master token for user {user_id}")
             else:
                 raise ValueError("Failed to get master token")
+
+        elif action == 'login-token':
+            # Direct master token authentication - user provides a pre-obtained token
+            email = job_data.get('email')
+            master_token = job_data.get('masterToken')
+
+            if not email or not master_token:
+                raise ValueError("Missing email or master token")
+
+            # Validate by doing a Keep.resume() test
+            logger.info(f"Validating master token for {email}...")
+            keep = gkeepapi.Keep()
+            keep.resume(email, master_token)
+
+            # If no exception, token is valid - store it
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE "User"
+                        SET "keepMasterToken" = %s,
+                            "syncStatus" = 'IDLE',
+                            "syncError" = NULL
+                        WHERE id = %s
+                    """, (master_token, user_id))
+                    conn.commit()
+            finally:
+                conn.close()
+
+            logger.info(f"Successfully validated and stored master token for user {user_id}")
 
         elif action == 'login-password':
             # App Password based authentication via gpsoauth.perform_master_login

@@ -98,7 +98,7 @@ pm2 start ecosystem.config.js
 ## Funkce
 
 - ✅ Registrace/Login s session-based autentizací
-- ✅ Propojení Google Keep účtu
+- ✅ Propojení Google Keep účtu (OAuth Token, Master Token)
 - ✅ Automatická synchronizace poznámek s real-time status polling
 - ✅ AI zpracování poznámek (Claude + OpenAI)
 - ✅ Multi-provider AI settings (vlastní API klíče)
@@ -119,26 +119,44 @@ pm2 start ecosystem.config.js
 
 ### Jak to funguje
 
-1. **Připojení účtu**: Uživatel zadá Google email a heslo/App Password
-2. **Autentizace**: gkeepapi provede login a získá master token
+1. **Připojení účtu**: Uživatel získá OAuth token nebo master token
+2. **Autentizace**: Worker vymění token a ověří přístup ke Google Keep
 3. **Synchronizace**: Worker stáhne poznámky z Google Keep
 4. **Real-time status**: Frontend automaticky polluje status každé 2 sekundy během sync
 
-### App Password (vyžadováno pro 2FA účty)
+### Metody autentizace
 
-Pokud máte zapnuté dvoufázové ověření, musíte použít App Password:
+#### OAuth Token (doporučeno)
 
-1. Jděte na [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-2. Vyberte "Jiná (vlastní název)" a zadejte "Keep Brain"
-3. Zkopírujte vygenerované heslo
-4. Použijte toto heslo místo běžného hesla
+Primární metoda. Používá Google EmbeddedSetup pro získání OAuth tokenu:
+
+1. Otevřete [accounts.google.com/EmbeddedSetup](https://accounts.google.com/EmbeddedSetup)
+2. Přihlaste se do Google účtu
+3. Otevřete DevTools (F12) → Application → Cookies
+4. Najděte cookie `oauth_token`
+5. Zkopírujte hodnotu a vložte do aplikace
+
+**Tip:** Pokud se stránka nenačte, zkuste vypnout ad blocker nebo použijte anonymní okno.
+
+#### Master Token (pro pokročilé)
+
+Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](https://github.com/djsudduth/keep-it-markdown)):
+
+1. Získejte master token pomocí externího nástroje
+2. Vložte token přímo do aplikace v nastavení
+
+#### App Password (nefunkční od ledna 2026)
+
+> **POZOR:** Google zrušil podporu App Password autentizace přes endpoint `android.clients.google.com/auth` v lednu 2026. Tato metoda již nefunguje. Použijte OAuth Token nebo Master Token.
 
 ### Troubleshooting
 
 | Chyba | Řešení |
 |-------|--------|
-| `BadAuthentication` | Master token expiroval. Odpojte účet a znovu připojte s App Password |
-| `LoginException` | Špatné heslo nebo chybí App Password pro 2FA účty |
+| `BadAuthentication` | Token expiroval. Odpojte účet a znovu připojte pomocí OAuth Token |
+| `UNKNOWN_ERR` | Google odmítl přihlášení. Použijte metodu OAuth Token |
+| `NeedsBrowser` | Google vyžaduje ověření přes prohlížeč. Použijte OAuth Token |
+| `LoginException` | Přihlášení selhalo. Použijte OAuth Token |
 | `Network/Connection error` | Zkontrolujte internet, zkuste později |
 | `Rate limit` | Počkejte pár minut a zkuste znovu |
 
@@ -150,7 +168,7 @@ Pokud máte zapnuté dvoufázové ověření, musíte použít App Password:
 └── GET  /me
 
 /api/keep
-├── POST   /connect
+├── POST   /connect    (oauthToken | masterToken | appPassword)
 ├── DELETE /disconnect
 └── POST   /sync
 

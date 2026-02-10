@@ -236,6 +236,12 @@ export const keepApi = {
       body: JSON.stringify(data),
     }),
 
+  connectWithToken: (data: { email: string; masterToken: string }) =>
+    fetchAPI<{ success: boolean }>("/api/keep/connect", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   disconnect: () =>
     fetchAPI<{ success: boolean }>("/api/keep/disconnect", {
       method: "DELETE",
