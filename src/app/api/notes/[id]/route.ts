@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { noteSchema, getZodErrorMessage } from "@/lib/validations"
 
 export async function GET(
   request: NextRequest,
@@ -66,7 +67,16 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { title, content } = body
+    const result = noteSchema.partial().safeParse(body)
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: getZodErrorMessage(result.error) },
+        { status: 400 }
+      )
+    }
+
+    const { title, content } = result.data
 
     const note = await db.note.update({
       where: { id },

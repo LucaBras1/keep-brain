@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const potential = searchParams.get("potential")
     const status = searchParams.get("status")
     const search = searchParams.get("search")
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "20")
+    const page = Math.max(parseInt(searchParams.get("page") || "1") || 1, 1)
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20") || 20, 1), 100)
 
     const where: Record<string, unknown> = { userId: user.id }
 
@@ -97,21 +97,19 @@ export async function POST(request: Request) {
       },
     })
 
-    // Handle tags if provided
+    // Handle tags if provided (scoped per user)
     if (tags && tags.length > 0) {
       for (const tagName of tags) {
-        // Find or create tag
-        let tag = await db.tag.findUnique({
-          where: { name: tagName },
+        let tag = await db.tag.findFirst({
+          where: { userId: user.id, name: tagName },
         })
 
         if (!tag) {
           tag = await db.tag.create({
-            data: { name: tagName },
+            data: { userId: user.id, name: tagName },
           })
         }
 
-        // Connect tag to idea
         await db.ideaTag.create({
           data: {
             ideaId: idea.id,

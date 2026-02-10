@@ -1,16 +1,9 @@
+import crypto from "crypto"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
 import { cookies } from "next/headers"
 import { db } from "./db"
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-change-me"
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d"
 const COOKIE_NAME = "keepbrain_session"
-
-export interface JWTPayload {
-  userId: string
-  email: string
-}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12)
@@ -23,25 +16,11 @@ export async function verifyPassword(
   return bcrypt.compare(password, hashedPassword)
 }
 
-export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
-  })
-}
-
-export function verifyToken(token: string): JWTPayload | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload
-  } catch {
-    return null
-  }
-}
-
 export async function createSession(userId: string): Promise<string> {
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
 
-  const token = generateToken({ userId, email: "" })
+  const token = crypto.randomBytes(32).toString("hex")
 
   await db.session.create({
     data: {
@@ -89,6 +68,11 @@ export async function getCurrentUser() {
       await db.session.delete({ where: { id: session.id } })
     }
     return null
+  }
+
+  // Probabilistic cleanup: ~1% chance per request
+  if (Math.random() < 0.01) {
+    cleanupExpiredSessions().catch(console.error)
   }
 
   return session.user

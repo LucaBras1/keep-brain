@@ -11,6 +11,11 @@ export interface AiClient {
     prompt: string,
     options?: { temperature?: number; maxTokens?: number }
   ) => Promise<string>
+  completeStructured: (
+    systemPrompt: string,
+    userContent: string,
+    options?: { temperature?: number; maxTokens?: number }
+  ) => Promise<string>
 }
 
 // Lazy-loaded Anthropic client for env-based usage
@@ -59,6 +64,17 @@ function createClaudeClient(
 
       return message.content[0].type === "text" ? message.content[0].text : ""
     },
+    async completeStructured(systemPrompt, userContent, options = {}) {
+      const message = await client.messages.create({
+        model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? defaultTemperature,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      })
+
+      return message.content[0].type === "text" ? message.content[0].text : ""
+    },
   }
 }
 
@@ -78,6 +94,19 @@ function createOpenAiClient(
         max_tokens: options.maxTokens || 1024,
         temperature: options.temperature ?? defaultTemperature,
         messages: [{ role: "user", content: prompt }],
+      })
+
+      return response.choices[0]?.message?.content || ""
+    },
+    async completeStructured(systemPrompt, userContent, options = {}) {
+      const response = await client.chat.completions.create({
+        model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? defaultTemperature,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
       })
 
       return response.choices[0]?.message?.content || ""

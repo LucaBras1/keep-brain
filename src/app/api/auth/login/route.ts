@@ -6,9 +6,23 @@ import {
   setSessionCookie,
 } from "@/lib/auth"
 import { loginSchema, getZodErrorMessage } from "@/lib/validations"
+import { rateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    // Rate limit by IP
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+    const limiter = rateLimit(`login:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
+    if (!limiter.success) {
+      return NextResponse.json(
+        { error: "Příliš mnoho pokusů o přihlášení. Zkuste to později." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil((limiter.resetAt - Date.now()) / 1000)) },
+        }
+      )
+    }
+
     const body = await request.json()
 
     // Validate input

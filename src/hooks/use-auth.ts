@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { authApi, type User } from "@/lib/api"
 import type { LoginInput, RegisterInput } from "@/lib/validations"
@@ -65,9 +66,11 @@ export function useRequireAuth() {
   const { data: user, isLoading } = useUser()
   const router = useRouter()
 
-  if (!isLoading && !user) {
-    router.push("/login")
-  }
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login")
+    }
+  }, [isLoading, user, router])
 
   return { user: user as User | null, isLoading }
 }

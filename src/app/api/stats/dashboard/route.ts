@@ -9,75 +9,66 @@ export async function GET() {
       return NextResponse.json({ error: "Nepřihlášen" }, { status: 401 })
     }
 
-    // Get total notes
-    const totalNotes = await db.note.count({
-      where: { userId: user.id },
-    })
+    const [
+      totalNotes,
+      processedNotes,
+      pendingNotes,
+      totalIdeas,
+      ideasByCategoryRaw,
+      ideasByPotentialRaw,
+      ideasByStatusRaw,
+      recentIdeas,
+    ] = await Promise.all([
+      db.note.count({
+        where: { userId: user.id },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "COMPLETED" },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "PENDING" },
+      }),
+      db.idea.count({
+        where: { userId: user.id },
+      }),
+      db.idea.groupBy({
+        by: ["category"],
+        where: { userId: user.id },
+        _count: true,
+      }),
+      db.idea.groupBy({
+        by: ["potential"],
+        where: { userId: user.id },
+        _count: true,
+      }),
+      db.idea.groupBy({
+        by: ["status"],
+        where: { userId: user.id },
+        _count: true,
+      }),
+      db.idea.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        include: {
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
+        },
+      }),
+    ])
 
-    // Get processed notes
-    const processedNotes = await db.note.count({
-      where: {
-        userId: user.id,
-        processingStatus: "COMPLETED",
-      },
-    })
-
-    // Get pending notes
-    const pendingNotes = await db.note.count({
-      where: {
-        userId: user.id,
-        processingStatus: "PENDING",
-      },
-    })
-
-    // Get total ideas
-    const totalIdeas = await db.idea.count({
-      where: { userId: user.id },
-    })
-
-    // Get ideas by category
-    const ideasByCategoryRaw = await db.idea.groupBy({
-      by: ["category"],
-      where: { userId: user.id },
-      _count: true,
-    })
     const ideasByCategory = Object.fromEntries(
       ideasByCategoryRaw.map((item) => [item.category, item._count])
     )
-
-    // Get ideas by potential
-    const ideasByPotentialRaw = await db.idea.groupBy({
-      by: ["potential"],
-      where: { userId: user.id },
-      _count: true,
-    })
     const ideasByPotential = Object.fromEntries(
       ideasByPotentialRaw.map((item) => [item.potential, item._count])
     )
-
-    // Get ideas by status
-    const ideasByStatusRaw = await db.idea.groupBy({
-      by: ["status"],
-      where: { userId: user.id },
-      _count: true,
-    })
     const ideasByStatus = Object.fromEntries(
       ideasByStatusRaw.map((item) => [item.status, item._count])
     )
-
-    // Get recent ideas
-    const recentIdeas = await db.idea.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    })
 
     return NextResponse.json({
       totalNotes,

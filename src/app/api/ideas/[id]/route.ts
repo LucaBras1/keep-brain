@@ -92,15 +92,15 @@ export async function PATCH(
         where: { ideaId: id },
       })
 
-      // Add new tags
+      // Add new tags (scoped per user)
       for (const tagName of tags) {
-        let tag = await db.tag.findUnique({
-          where: { name: tagName },
+        let tag = await db.tag.findFirst({
+          where: { userId: user.id, name: tagName },
         })
 
         if (!tag) {
           tag = await db.tag.create({
-            data: { name: tagName },
+            data: { userId: user.id, name: tagName },
           })
         }
 

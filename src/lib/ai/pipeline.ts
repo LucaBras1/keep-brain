@@ -2,7 +2,29 @@ import { getAiClientForUser } from "./client"
 import { db } from "@/lib/db"
 import type { Idea } from "@/generated/prisma"
 
-// Default AI Processing Prompt
+// Default AI Processing System Prompt (instructions only, no user content)
+export const DEFAULT_SYSTEM_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
+
+INSTRUKCE:
+1. Přečti poznámku a rozhodni, zda obsahuje potenciálně užitečný nápad (podnikatelský, technologický, finanční, životní moudrost, tip).
+2. Pokud poznámka NEOBSAHUJE žádný nápad (je to např. nákupní seznam, připomínka, osobní poznámka bez hodnoty), vrať JSON s "skip": true.
+3. Pokud poznámka OBSAHUJE nápad, analyzuj ho a vrať strukturovaný JSON.
+
+VÝSTUP (JSON):
+{
+  "skip": boolean,           // true pokud není nápad k extrakci
+  "title": string,           // stručný název nápadu (max 100 znaků)
+  "description": string,     // popis nápadu (2-5 vět)
+  "category": string,        // jedna z: "business", "ai", "finance", "thought"
+  "potential": string,       // jedna z: "vysoký", "střední", "nízký"
+  "type": string,            // jedna z: "platforma", "produkt", "služba", "nástroj", "koncept", "postřeh", "moudrost", "tip"
+  "tags": string[],          // 2-5 relevantních tagů
+  "next_steps": string[]     // 2-3 konkrétní další kroky (pokud aplikovatelné)
+}
+
+Odpověz POUZE validním JSON objektem, bez dalšího textu.`
+
+// Legacy template for custom prompts (backwards compatible)
 export const DEFAULT_PROCESSING_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
 
 VSTUP:
@@ -124,17 +146,25 @@ export async function processNote(
     // Get AI client configured for the user
     const aiClient = await getAiClientForUser(note.userId)
 
-    // Prepare content
-    const content = note.title
+    // Prepare content - sanitize triple-quote delimiters
+    const rawContent = note.title
       ? `Název: ${note.title}\n\n${note.content}`
       : note.content
+    const content = rawContent.replace(/"""/g, '"\\"\\""')
 
-    // Use custom prompt or default
-    const promptTemplate = user?.customPrompt || DEFAULT_PROCESSING_PROMPT
-    const prompt = promptTemplate.replace("{{NOTE_CONTENT}}", content)
-
-    // Call AI API
-    const responseText = await aiClient.complete(prompt)
+    // Use structured system/user message separation when no custom prompt
+    let responseText: string
+    if (user?.customPrompt) {
+      // Custom prompt uses legacy template approach
+      const prompt = user.customPrompt.replace("{{NOTE_CONTENT}}", content)
+      responseText = await aiClient.complete(prompt)
+    } else {
+      // Default: proper system/user separation to prevent prompt injection
+      responseText = await aiClient.completeStructured(
+        DEFAULT_SYSTEM_PROMPT,
+        `Poznámka k analýze:\n\n${content}`
+      )
+    }
 
     // Parse JSON response
     let result: ProcessingResult
@@ -189,16 +219,16 @@ export async function processNote(
       },
     })
 
-    // Create tags
+    // Create tags (scoped per user)
     if (result.tags && result.tags.length > 0) {
       for (const tagName of result.tags) {
-        let tag = await db.tag.findUnique({
-          where: { name: tagName },
+        let tag = await db.tag.findFirst({
+          where: { userId: note.userId, name: tagName },
         })
 
         if (!tag) {
           tag = await db.tag.create({
-            data: { name: tagName },
+            data: { userId: note.userId, name: tagName },
           })
         }
 

@@ -128,6 +128,7 @@ model User {
   ideas           Idea[]
   sessions        Session[]
   syncLogs        SyncLog[]
+  tags            Tag[]
 
   @@index([email])
 }
@@ -223,13 +224,17 @@ model Idea {
 
 model Tag {
   id        String    @id @default(cuid())
-  name      String    @unique
+  userId    String
+  name      String
   color     String?
   createdAt DateTime  @default(now())
 
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   ideas     IdeaTag[]
 
+  @@unique([userId, name])
   @@index([name])
+  @@index([userId])
 }
 
 model IdeaTag {

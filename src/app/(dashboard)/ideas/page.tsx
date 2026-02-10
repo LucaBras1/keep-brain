@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ideasApi, type Idea } from "@/lib/api"
+import { useDebounce } from "@/hooks/use-debounce"
 import { toast } from "@/hooks/use-toast"
 import {
   Card,
@@ -103,12 +104,13 @@ export default function IdeasPage() {
   const [potential, setPotential] = useState("all")
   const [status, setStatus] = useState("all")
   const [createOpen, setCreateOpen] = useState(false)
+  const debouncedSearch = useDebounce(search, 300)
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ideas", { search, category, potential, status }],
+    queryKey: ["ideas", { search: debouncedSearch, category, potential, status }],
     queryFn: () =>
       ideasApi.list({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         category: category !== "all" ? category : undefined,
         potential: potential !== "all" ? potential : undefined,
         status: status !== "all" ? status : undefined,

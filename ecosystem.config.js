@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Načtení .env souboru pro PM2
 require("dotenv").config();
 
@@ -16,7 +17,8 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 3011,
         DATABASE_URL: process.env.DATABASE_URL,
-        JWT_SECRET: process.env.JWT_SECRET,
+        ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+        ENCRYPTION_SALT: process.env.ENCRYPTION_SALT,
         REDIS_URL: process.env.REDIS_URL,
         NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       },

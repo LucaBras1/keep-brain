@@ -9,8 +9,12 @@ function getEncryptionKey(): Buffer {
   if (!key) {
     throw new Error("ENCRYPTION_KEY environment variable is not set")
   }
+  const salt = process.env.ENCRYPTION_SALT
+  if (!salt) {
+    throw new Error("ENCRYPTION_SALT environment variable is not set")
+  }
   // Ensure key is exactly 32 bytes
-  return crypto.scryptSync(key, "salt", 32)
+  return crypto.scryptSync(key, salt, 32)
 }
 
 export function encrypt(text: string): { encrypted: string; iv: string } {

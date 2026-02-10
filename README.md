@@ -67,8 +67,8 @@ cp .env.example .env.local
 Vyplňte hodnoty v `.env.local`:
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection string
-- `JWT_SECRET` - Secret pro JWT tokeny
 - `ENCRYPTION_KEY` - Klíč pro šifrování (32 znaků)
+- `ENCRYPTION_SALT` - Sůl pro derivaci šifrovacího klíče (pro zpětnou kompatibilitu: "salt")
 - `ANTHROPIC_API_KEY` - API klíč pro Claude
 
 ### 4. Databáze
@@ -97,7 +97,7 @@ pm2 start ecosystem.config.js
 
 ## Funkce
 
-- ✅ Registrace/Login s JWT autentizací
+- ✅ Registrace/Login s session-based autentizací
 - ✅ Propojení Google Keep účtu
 - ✅ Automatická synchronizace poznámek s real-time status polling
 - ✅ AI zpracování poznámek (Claude + OpenAI)
@@ -109,6 +109,11 @@ pm2 start ecosystem.config.js
 - ✅ JSON export dat
 - ✅ Dark/Light mode
 - ✅ User-friendly error messages pro sync chyby
+- ✅ Auth middleware s ochranou všech API a stránek
+- ✅ Rate limiting pro login/registraci (10 pokusů / 15 min)
+- ✅ Security headers (X-Frame-Options, HSTS, CSP atd.)
+- ✅ Zod validace na všech API endpointech
+- ✅ Error boundary pro graceful error handling
 
 ## Google Keep Sync
 
@@ -153,6 +158,8 @@ Pokud máte zapnuté dvoufázové ověření, musíte použít App Password:
 ├── GET    /
 ├── POST   /
 ├── GET    /:id
+├── PATCH  /:id
+├── DELETE /:id
 └── POST   /:id/reprocess
 
 /api/ideas
@@ -189,6 +196,14 @@ npm run build
 pm2 start ecosystem.config.js
 pm2 save
 ```
+
+### Po aktualizaci z verze bez userId na tazích
+
+```bash
+npx prisma db push
+```
+
+Pozn.: Tag model nyní vyžaduje `userId`. Existující tagy potřebují data migraci pro vyplnění `userId` - přiřaďte je uživateli, který je vytvořil (např. přes poznámky/nápady, na které jsou navázané).
 
 ## Licence
 
