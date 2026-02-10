@@ -60,6 +60,12 @@ function getSyncErrorMessage(error: string): string {
       error.includes('Neplatne App Password')) {
     return 'Pristupovy token ke Google Keep expiroval nebo je neplatny.'
   }
+  if (error.includes('UNKNOWN_ERR')) {
+    return 'Google odmitl prihlaseni. Zkuste vygenerovat nove App Password.'
+  }
+  if (error.includes('NeedsBrowser')) {
+    return 'Google vyzaduje overeni pres prohlizec. Zapnete 2FA a pouzijte App Password.'
+  }
   if (error.includes('LoginException') || error.includes('authentication failed')) {
     return 'Prihlaseni k Google Keep selhalo. Heslo je neplatne nebo je vyzadovano App Password.'
   }
@@ -72,7 +78,8 @@ function getSyncErrorMessage(error: string): string {
 function getSyncErrorSolutions(error: string): string[] {
   if (error.includes('BadAuthentication') || error.includes('resume') ||
       error.includes('LoginException') || error.includes('authentication') ||
-      error.includes('Neplatne App Password')) {
+      error.includes('Neplatne App Password') ||
+      error.includes('UNKNOWN_ERR') || error.includes('NeedsBrowser')) {
     return [
       'Odpojte ucet kliknutim na "Odpojit ucet"',
       'Prejdete na myaccount.google.com -> Zabezpeceni -> Dvoufazove overeni -> Hesla aplikaci',
@@ -771,7 +778,9 @@ export default function SettingsPage() {
                       {(user.syncError.includes('BadAuthentication') ||
                         user.syncError.includes('authentication') ||
                         user.syncError.includes('LoginException') ||
-                        user.syncError.includes('Neplatne App Password')) && (
+                        user.syncError.includes('Neplatne App Password') ||
+                        user.syncError.includes('UNKNOWN_ERR') ||
+                        user.syncError.includes('NeedsBrowser')) && (
                         <a
                           href="https://myaccount.google.com/apppasswords"
                           target="_blank"

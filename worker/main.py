@@ -24,6 +24,7 @@ import redis
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import gpsoauth
+import gkeepapi
 
 from keep_sync import KeepSync
 
@@ -38,6 +39,10 @@ def categorize_error(error: Exception) -> str:
     # Authentication errors
     if 'BadAuthentication' in error_str:
         return "BadAuthentication: Pristupovy token expiroval. Odpojte ucet a znovu pripojte pomoci App Password."
+    if 'UNKNOWN_ERR' in error_str:
+        return "UNKNOWN_ERR: Google odmitl prihlaseni. Zkuste vygenerovat nove App Password, nebo pouzijte OAuth Token."
+    if 'NeedsBrowser' in error_str:
+        return "NeedsBrowser: Google vyzaduje overeni pres prohlizec. Zapnete dvoufazove overeni a pouzijte App Password."
     if 'LoginException' in error_str:
         return "Prihlaseni selhalo. Zkontrolujte ze pouzivate App Password (ne bezne heslo)."
     if 'authentication' in error_str.lower():
@@ -154,7 +159,7 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
 
 def master_login_with_password(email: str, app_password: str) -> str:
     """
-    Login using email + App Password via gpsoauth.perform_master_login.
+    Login using email + App Password via gkeepapi's built-in login.
 
     Args:
         email: Google account email
@@ -166,25 +171,37 @@ def master_login_with_password(email: str, app_password: str) -> str:
     Raises:
         ValueError: If login fails
     """
-    android_id = generate_android_id()
-
     try:
         logger.info(f"Performing master login for {email}...")
-        result = gpsoauth.perform_master_login(email, app_password, android_id)
+        keep = gkeepapi.Keep()
+        keep.login(email, app_password)
+        master_token = keep.getMasterToken()
 
-        if 'Token' in result:
+        if master_token:
             logger.info(f"Master login successful for {email}")
-            return result['Token']
-        elif 'Error' in result:
-            error_msg = result.get('Error', 'Unknown error')
-            logger.error(f"Master login failed: {error_msg}")
-            if 'BadAuthentication' in error_msg:
-                raise ValueError("BadAuthentication: Neplatne App Password. Zkontrolujte, ze pouzivate spravne App Password z Google uctu.")
-            raise ValueError(f"Prihlaseni selhalo: {error_msg}")
+            return master_token
         else:
-            logger.error(f"Unexpected response: {result}")
-            raise ValueError("Neocekavana odpoved od Google")
+            raise ValueError("Prihlaseni selhalo: Nebyl ziskan master token")
 
+    except gkeepapi.exception.LoginException as e:
+        error_str = str(e)
+        logger.error(f"Master login failed: {error_str}")
+        if 'NeedsBrowser' in error_str:
+            raise ValueError(
+                "NeedsBrowser: Google vyzaduje overeni pres prohlizec. "
+                "Zapnete dvoufazove overeni a pouzijte App Password."
+            )
+        if 'BadAuthentication' in error_str:
+            raise ValueError(
+                "BadAuthentication: Neplatne App Password. "
+                "Zkontrolujte, ze pouzivate spravne App Password z Google uctu."
+            )
+        if 'UNKNOWN_ERR' in error_str:
+            raise ValueError(
+                "UNKNOWN_ERR: Google odmitl prihlaseni. "
+                "Zkuste vygenerovat nove App Password."
+            )
+        raise ValueError(f"Prihlaseni selhalo: {error_str}")
     except ValueError:
         raise
     except Exception as e:
@@ -420,6 +437,15 @@ def process_sync_job(job_data: dict):
 def main():
     """Main worker loop."""
     logger.info("Keep Brain Worker starting...")
+
+    import ssl
+    logger.info(f"Python: {sys.version}")
+    logger.info(f"OpenSSL: {ssl.OPENSSL_VERSION}")
+    try:
+        import urllib3
+        logger.info(f"urllib3: {urllib3.__version__}, gpsoauth: {gpsoauth.__version__}, gkeepapi: {gkeepapi.__version__}")
+    except Exception:
+        pass
 
     if not DATABASE_URL:
         logger.error("DATABASE_URL not set")
