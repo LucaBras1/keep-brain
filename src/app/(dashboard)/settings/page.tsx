@@ -56,7 +56,8 @@ import { format } from "date-fns"
 import { cs } from "date-fns/locale"
 
 function getSyncErrorMessage(error: string): string {
-  if (error.includes('BadAuthentication') || error.includes('resume')) {
+  if (error.includes('BadAuthentication') || error.includes('resume') ||
+      error.includes('Neplatne App Password')) {
     return 'Pristupovy token ke Google Keep expiroval nebo je neplatny.'
   }
   if (error.includes('LoginException') || error.includes('authentication failed')) {
@@ -70,12 +71,14 @@ function getSyncErrorMessage(error: string): string {
 
 function getSyncErrorSolutions(error: string): string[] {
   if (error.includes('BadAuthentication') || error.includes('resume') ||
-      error.includes('LoginException') || error.includes('authentication')) {
+      error.includes('LoginException') || error.includes('authentication') ||
+      error.includes('Neplatne App Password')) {
     return [
       'Odpojte ucet kliknutim na "Odpojit ucet"',
       'Prejdete na myaccount.google.com -> Zabezpeceni -> Dvoufazove overeni -> Hesla aplikaci',
       'Vygenerujte nove App Password pro "Keep Brain"',
-      'Znovu pripojte ucet pomoci App Password (ne bezneho hesla)'
+      'Znovu pripojte ucet pomoci App Password (ne bezneho hesla)',
+      'Pokud App Password nefunguje, zkuste alternativni metodu "OAuth Token"'
     ]
   }
   if (error.includes('network') || error.includes('connection')) {
@@ -767,7 +770,8 @@ export default function SettingsPage() {
                       </div>
                       {(user.syncError.includes('BadAuthentication') ||
                         user.syncError.includes('authentication') ||
-                        user.syncError.includes('LoginException')) && (
+                        user.syncError.includes('LoginException') ||
+                        user.syncError.includes('Neplatne App Password')) && (
                         <a
                           href="https://myaccount.google.com/apppasswords"
                           target="_blank"

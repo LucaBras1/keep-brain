@@ -179,7 +179,7 @@ def master_login_with_password(email: str, app_password: str) -> str:
             error_msg = result.get('Error', 'Unknown error')
             logger.error(f"Master login failed: {error_msg}")
             if 'BadAuthentication' in error_msg:
-                raise ValueError("Neplatne App Password. Zkontrolujte, ze pouzivate spravne App Password z Google uctu.")
+                raise ValueError("BadAuthentication: Neplatne App Password. Zkontrolujte, ze pouzivate spravne App Password z Google uctu.")
             raise ValueError(f"Prihlaseni selhalo: {error_msg}")
         else:
             logger.error(f"Unexpected response: {result}")
