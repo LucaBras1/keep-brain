@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { noteSchema, getZodErrorMessage } from "@/lib/validations"
+import { addAiProcessingJob } from "@/lib/queue"
+import { NOTE_SOURCES } from "@/lib/constants"
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,15 +60,33 @@ export async function POST(request: Request) {
       )
     }
 
+    const source = body.source === NOTE_SOURCES.QUICK_CAPTURE
+      ? NOTE_SOURCES.QUICK_CAPTURE
+      : NOTE_SOURCES.MANUAL
+
     const note = await db.note.create({
       data: {
         userId: user.id,
         title: result.data.title,
         content: result.data.content,
-        source: "manual",
+        source,
         processingStatus: "PENDING",
       },
     })
+
+    // Auto-queue for AI processing if user has AI enabled
+    if (user.aiEnabled && user.autoProcessNotes) {
+      try {
+        await addAiProcessingJob({
+          noteId: note.id,
+          userId: user.id,
+          content: note.content,
+          title: note.title || undefined,
+        })
+      } catch (queueError) {
+        console.error("Failed to queue AI processing:", queueError)
+      }
+    }
 
     return NextResponse.json({ note })
   } catch (error) {

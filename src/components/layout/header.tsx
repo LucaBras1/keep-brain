@@ -14,6 +14,7 @@ import { useUser, useLogout } from "@/hooks/use-auth"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { keepApi } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
+import { QuickCapture } from "./quick-capture"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -63,7 +64,9 @@ export function Header({ onMenuClick }: HeaderProps) {
         <span className="sr-only">Menu</span>
       </Button>
 
-      <div className="flex-1" />
+      <div className="flex-1 flex justify-center px-4">
+        <QuickCapture />
+      </div>
 
       <div className="flex items-center gap-2">
         {user?.keepEmail && (

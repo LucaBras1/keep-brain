@@ -2,8 +2,8 @@ import crypto from "crypto"
 import bcrypt from "bcryptjs"
 import { cookies } from "next/headers"
 import { db } from "./db"
+import { SESSION_COOKIE_NAME, SESSION_DURATION_DAYS } from "./constants"
 
-const COOKIE_NAME = "keepbrain_session"
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12)
@@ -18,7 +18,7 @@ export async function verifyPassword(
 
 export async function createSession(userId: string): Promise<string> {
   const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
+  expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS)
 
   const token = crypto.randomBytes(32).toString("hex")
 
@@ -35,7 +35,7 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.set(COOKIE_NAME, token, {
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -46,12 +46,12 @@ export async function setSessionCookie(token: string): Promise<void> {
 
 export async function getSessionCookie(): Promise<string | undefined> {
   const cookieStore = await cookies()
-  return cookieStore.get(COOKIE_NAME)?.value
+  return cookieStore.get(SESSION_COOKIE_NAME)?.value
 }
 
 export async function deleteSessionCookie(): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.delete(COOKIE_NAME)
+  cookieStore.delete(SESSION_COOKIE_NAME)
 }
 
 export async function getCurrentUser() {

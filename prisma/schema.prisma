@@ -77,6 +77,22 @@ enum AiProvider {
   OPENAI
 }
 
+enum SourceType {
+  GOOGLE_KEEP
+  QUICK_CAPTURE
+  MANUAL
+  NOTION
+  OBSIDIAN
+}
+
+enum RelationType {
+  RELATED
+  DEPENDS_ON
+  EVOLVED_FROM
+  CONTRADICTS
+  SUPPORTS
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -87,7 +103,7 @@ model User {
   passwordHash    String
   name            String?
 
-  // Google Keep integration
+  // Google Keep integration (legacy - being migrated to NoteSource)
   keepEmail       String?
   keepMasterToken String?   // Encrypted with AES-256
   keepTokenIv     String?   // IV for AES decryption
@@ -95,6 +111,9 @@ model User {
   lastSyncAt      DateTime?
   syncStatus      SyncStatus @default(IDLE)
   syncError       String?
+
+  // Keep sync state for delta sync (keep.dump() serialized state)
+  keepSyncState   String?   @db.Text
 
   // Preferences
   theme           Theme     @default(SYSTEM)
@@ -129,6 +148,7 @@ model User {
   sessions        Session[]
   syncLogs        SyncLog[]
   tags            Tag[]
+  noteSources     NoteSource[]
 
   @@index([email])
 }
@@ -143,6 +163,27 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
+  @@index([userId])
+}
+
+model NoteSource {
+  id          String     @id @default(cuid())
+  userId      String
+  type        SourceType
+  name        String
+  credentials String?    @db.Text  // Encrypted JSON
+  credIv      String?
+  syncState   String?    @db.Text  // Opaque state for delta sync
+  lastSyncAt  DateTime?
+  syncStatus  SyncStatus @default(IDLE)
+  syncError   String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes       Note[]
+
   @@index([userId])
 }
 
@@ -168,7 +209,11 @@ model Note {
   processedAt      DateTime?
 
   // Source tracking
-  source           String           @default("keep") // "keep" | "manual"
+  source           String           @default("keep") // "keep" | "manual" | "quick_capture"
+  sourceId         String?          // FK to NoteSource (optional during migration)
+
+  // Content hash for delta sync (SHA-256 of title+content)
+  contentHash      String?
 
   // Timestamps from Keep
   keepCreatedAt    DateTime?
@@ -180,12 +225,15 @@ model Note {
 
   // Relations
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteSource       NoteSource?      @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   ideas            Idea[]
 
   @@unique([userId, keepId])
   @@index([userId])
   @@index([processingStatus])
   @@index([keepId])
+  @@index([sourceId])
+  @@index([contentHash])
 }
 
 model Idea {
@@ -215,11 +263,44 @@ model Idea {
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   note        Note?      @relation(fields: [noteId], references: [id], onDelete: SetNull)
   tags        IdeaTag[]
+  versions    IdeaVersion[]
+  fromRelations IdeaRelation[] @relation("fromIdea")
+  toRelations   IdeaRelation[] @relation("toIdea")
 
   @@index([userId])
   @@index([category])
   @@index([status])
   @@index([potential])
+}
+
+model IdeaVersion {
+  id         String   @id @default(cuid())
+  ideaId     String
+  version    Int
+  data       Json     // Snapshot of idea fields at this version
+  changeType String   // "ai_created", "user_edited", "ai_reprocessed"
+  createdAt  DateTime @default(now())
+
+  idea       Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+
+  @@index([ideaId])
+}
+
+model IdeaRelation {
+  id          String       @id @default(cuid())
+  fromIdeaId  String
+  toIdeaId    String
+  type        RelationType
+  strength    Float        @default(0.5)  // 0.0 - 1.0 confidence/strength
+  aiSuggested Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  fromIdea    Idea         @relation("fromIdea", fields: [fromIdeaId], references: [id], onDelete: Cascade)
+  toIdea      Idea         @relation("toIdea", fields: [toIdeaId], references: [id], onDelete: Cascade)
+
+  @@unique([fromIdeaId, toIdeaId])
+  @@index([fromIdeaId])
+  @@index([toIdeaId])
 }
 
 model Tag {

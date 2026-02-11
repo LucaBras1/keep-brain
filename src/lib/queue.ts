@@ -1,5 +1,6 @@
 import { Queue } from "bullmq"
 import IORedis from "ioredis"
+import { QUEUE_NAMES, MAX_PROCESSING_ATTEMPTS, PROCESSING_BACKOFF_DELAY_MS } from "./constants"
 
 // Lazy-load Redis connection to avoid build-time errors
 let connection: IORedis | null = null
@@ -21,7 +22,7 @@ function getConnection(): IORedis {
 
 function getKeepSyncQueue(): Queue {
   if (!keepSyncQueue) {
-    keepSyncQueue = new Queue("keep-sync", {
+    keepSyncQueue = new Queue(QUEUE_NAMES.KEEP_SYNC, {
       connection: getConnection(),
     })
   }
@@ -30,7 +31,7 @@ function getKeepSyncQueue(): Queue {
 
 function getAiProcessingQueue(): Queue {
   if (!aiProcessingQueue) {
-    aiProcessingQueue = new Queue("ai-processing", {
+    aiProcessingQueue = new Queue(QUEUE_NAMES.AI_PROCESSING, {
       connection: getConnection(),
     })
   }
@@ -70,10 +71,10 @@ export async function addAiProcessingJob(
   const job = await queue.add("process", data, {
     removeOnComplete: 100,
     removeOnFail: 50,
-    attempts: 3,
+    attempts: MAX_PROCESSING_ATTEMPTS,
     backoff: {
       type: "exponential",
-      delay: 1000,
+      delay: PROCESSING_BACKOFF_DELAY_MS,
     },
   })
   return job.id || ""
@@ -90,10 +91,10 @@ export async function addBatchAiProcessingJobs(
       opts: {
         removeOnComplete: 100,
         removeOnFail: 50,
-        attempts: 3,
+        attempts: MAX_PROCESSING_ATTEMPTS,
         backoff: {
           type: "exponential",
-          delay: 1000,
+          delay: PROCESSING_BACKOFF_DELAY_MS,
         },
       },
     }))

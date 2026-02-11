@@ -1,125 +1,108 @@
-import { getAiClientForUser } from "./client"
+import { getAiClientForUser, type ToolSchema } from "./client"
 import { db } from "@/lib/db"
+import { CATEGORY_MAP, POTENTIAL_MAP, TYPE_MAP } from "@/lib/constants"
 import type { Idea } from "@/generated/prisma"
 
-// Default AI Processing System Prompt (instructions only, no user content)
-export const DEFAULT_SYSTEM_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
+// System prompt for structured tool-based extraction
+export const DEFAULT_SYSTEM_PROMPT = `Jsi expert na analyzu a kategorizaci napadu. Tvym ukolem je analyzovat surovou poznamku a rozhodnout, zda obsahuje zajimavý napad.
 
 INSTRUKCE:
-1. Přečti poznámku a rozhodni, zda obsahuje potenciálně užitečný nápad (podnikatelský, technologický, finanční, životní moudrost, tip).
-2. Pokud poznámka NEOBSAHUJE žádný nápad (je to např. nákupní seznam, připomínka, osobní poznámka bez hodnoty), vrať JSON s "skip": true.
-3. Pokud poznámka OBSAHUJE nápad, analyzuj ho a vrať strukturovaný JSON.
+1. Precti poznamku a rozhodni, zda obsahuje potencialne uzitecny napad (podnikatelsky, technologicky, financni, zivotni moudrost, tip).
+2. Pokud poznamka NEOBSAHUJE zadny napad (je to napr. nakupni seznam, pripominka, osobni poznamka bez hodnoty), pouzij nastroj s "skip": true.
+3. Pokud poznamka OBSAHUJE napad, analyzuj ho a pouzij nastroj s kompletnimi daty.
 
-VÝSTUP (JSON):
-{
-  "skip": boolean,           // true pokud není nápad k extrakci
-  "title": string,           // stručný název nápadu (max 100 znaků)
-  "description": string,     // popis nápadu (2-5 vět)
-  "category": string,        // jedna z: "business", "ai", "finance", "thought"
-  "potential": string,       // jedna z: "vysoký", "střední", "nízký"
-  "type": string,            // jedna z: "platforma", "produkt", "služba", "nástroj", "koncept", "postřeh", "moudrost", "tip"
-  "tags": string[],          // 2-5 relevantních tagů
-  "next_steps": string[]     // 2-3 konkrétní další kroky (pokud aplikovatelné)
-}
-
-Odpověz POUZE validním JSON objektem, bez dalšího textu.`
+VZDY pouzij poskytnuty nastroj pro odpoved.`
 
 // Legacy template for custom prompts (backwards compatible)
-export const DEFAULT_PROCESSING_PROMPT = `Jsi expert na analýzu a kategorizaci nápadů. Tvým úkolem je analyzovat surovou poznámku z Google Keep a rozhodnout, zda obsahuje zajímavý nápad.
+export const DEFAULT_PROCESSING_PROMPT = `Jsi expert na analyzu a kategorizaci napadu. Tvym ukolem je analyzovat surovou poznamku z Google Keep a rozhodnout, zda obsahuje zajimavý napad.
 
 VSTUP:
-Poznámka: """
+Poznamka: """
 {{NOTE_CONTENT}}
 """
 
 INSTRUKCE:
-1. Přečti poznámku a rozhodni, zda obsahuje potenciálně užitečný nápad (podnikatelský, technologický, finanční, životní moudrost, tip).
-2. Pokud poznámka NEOBSAHUJE žádný nápad (je to např. nákupní seznam, připomínka, osobní poznámka bez hodnoty), vrať JSON s "skip": true.
-3. Pokud poznámka OBSAHUJE nápad, analyzuj ho a vrať strukturovaný JSON.
+1. Precti poznamku a rozhodni, zda obsahuje potencialne uzitecny napad (podnikatelsky, technologicky, financni, zivotni moudrost, tip).
+2. Pokud poznamka NEOBSAHUJE zadny napad (je to napr. nakupni seznam, pripominka, osobni poznamka bez hodnoty), vrat JSON s "skip": true.
+3. Pokud poznamka OBSAHUJE napad, analyzuj ho a vrat strukturovany JSON.
 
-VÝSTUP (JSON):
+VYSTUP (JSON):
 {
-  "skip": boolean,           // true pokud není nápad k extrakci
-  "title": string,           // stručný název nápadu (max 100 znaků)
-  "description": string,     // popis nápadu (2-5 vět)
-  "category": string,        // jedna z: "business", "ai", "finance", "thought"
-  "potential": string,       // jedna z: "vysoký", "střední", "nízký"
-  "type": string,            // jedna z: "platforma", "produkt", "služba", "nástroj", "koncept", "postřeh", "moudrost", "tip"
-  "tags": string[],          // 2-5 relevantních tagů
-  "next_steps": string[]     // 2-3 konkrétní další kroky (pokud aplikovatelné)
+  "skip": boolean,
+  "title": string,
+  "description": string,
+  "category": string,
+  "potential": string,
+  "type": string,
+  "tags": string[],
+  "next_steps": string[]
 }
 
-Odpověz POUZE validním JSON objektem, bez dalšího textu.`
+Odpovez POUZE validnim JSON objektem, bez dalsiho textu.`
+
+// Tool schema for structured AI output (Claude tool_use / OpenAI function_calling)
+export const NOTE_ANALYSIS_TOOL: ToolSchema = {
+  name: "analyze_note",
+  description: "Analyzuj poznamku a extrahuj napad, nebo oznac jako preskocit pokud neobsahuje napad.",
+  parameters: {
+    type: "object",
+    properties: {
+      skip: {
+        type: "boolean",
+        description: "true pokud poznamka neobsahuje zadny napad k extrakci",
+      },
+      title: {
+        type: "string",
+        description: "Strucny nazev napadu (max 100 znaku)",
+      },
+      description: {
+        type: "string",
+        description: "Popis napadu (2-5 vet)",
+      },
+      category: {
+        type: "string",
+        enum: ["business", "ai", "finance", "thought"],
+        description: "Kategorie napadu",
+      },
+      potential: {
+        type: "string",
+        enum: ["high", "medium", "low"],
+        description: "Potencial napadu",
+      },
+      type: {
+        type: "string",
+        enum: ["platform", "product", "service", "tool", "concept", "insight", "wisdom", "tip"],
+        description: "Typ napadu",
+      },
+      tags: {
+        type: "array",
+        items: { type: "string" },
+        description: "2-5 relevantnich tagu",
+      },
+      next_steps: {
+        type: "array",
+        items: { type: "string" },
+        description: "2-3 konkretni dalsi kroky",
+      },
+    },
+    required: ["skip"],
+  },
+}
 
 export interface ProcessingResult {
   skip: boolean
   title?: string
   description?: string
-  category?: "business" | "ai" | "finance" | "thought"
-  potential?: "vysoký" | "střední" | "nízký"
-  type?:
-    | "platforma"
-    | "produkt"
-    | "služba"
-    | "nástroj"
-    | "koncept"
-    | "postřeh"
-    | "moudrost"
-    | "tip"
+  category?: string
+  potential?: string
+  type?: string
   tags?: string[]
   next_steps?: string[]
-}
-
-// Map Czech values to English enum values
-const categoryMap: Record<string, "BUSINESS" | "AI" | "FINANCE" | "THOUGHT"> = {
-  business: "BUSINESS",
-  ai: "AI",
-  finance: "FINANCE",
-  thought: "THOUGHT",
-  myšlenka: "THOUGHT",
-}
-
-const potentialMap: Record<string, "HIGH" | "MEDIUM" | "LOW"> = {
-  vysoký: "HIGH",
-  střední: "MEDIUM",
-  nízký: "LOW",
-  high: "HIGH",
-  medium: "MEDIUM",
-  low: "LOW",
-}
-
-const typeMap: Record<
-  string,
-  | "PLATFORM"
-  | "PRODUCT"
-  | "SERVICE"
-  | "TOOL"
-  | "CONCEPT"
-  | "INSIGHT"
-  | "WISDOM"
-  | "TIP"
-> = {
-  platforma: "PLATFORM",
-  produkt: "PRODUCT",
-  služba: "SERVICE",
-  nástroj: "TOOL",
-  koncept: "CONCEPT",
-  postřeh: "INSIGHT",
-  moudrost: "WISDOM",
-  tip: "TIP",
-  platform: "PLATFORM",
-  product: "PRODUCT",
-  service: "SERVICE",
-  tool: "TOOL",
-  concept: "CONCEPT",
-  insight: "INSIGHT",
-  wisdom: "WISDOM",
 }
 
 export async function processNote(
   noteId: string
 ): Promise<{ success: boolean; idea?: Idea; error?: string }> {
-  // Get note from database
   const note = await db.note.findUnique({
     where: { id: noteId },
   })
@@ -128,7 +111,6 @@ export async function processNote(
     return { success: false, error: "Note not found" }
   }
 
-  // Get user settings for custom prompt
   const user = await db.user.findUnique({
     where: { id: note.userId },
     select: {
@@ -143,51 +125,42 @@ export async function processNote(
   })
 
   try {
-    // Get AI client configured for the user
     const aiClient = await getAiClientForUser(note.userId)
 
-    // Prepare content - sanitize triple-quote delimiters
+    // Prepare content
     const rawContent = note.title
-      ? `Název: ${note.title}\n\n${note.content}`
+      ? `Nazev: ${note.title}\n\n${note.content}`
       : note.content
     const content = rawContent.replace(/"""/g, '"\\"\\""')
 
-    // Use structured system/user message separation when no custom prompt
+    let result: ProcessingResult
     let responseText: string
+
     if (user?.customPrompt) {
-      // Custom prompt uses legacy template approach
+      // Custom prompt: legacy template approach with JSON parsing fallback
       const prompt = user.customPrompt.replace("{{NOTE_CONTENT}}", content)
       responseText = await aiClient.complete(prompt)
-    } else {
-      // Default: proper system/user separation to prevent prompt injection
-      responseText = await aiClient.completeStructured(
-        DEFAULT_SYSTEM_PROMPT,
-        `Poznámka k analýze:\n\n${content}`
-      )
-    }
 
-    // Parse JSON response
-    let result: ProcessingResult
-    try {
-      // Try to extract JSON from response (in case there's extra text)
+      // Parse JSON response (legacy path)
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0])
-      } else {
+      if (!jsonMatch) {
         throw new Error("No JSON found in response")
       }
-    } catch {
-      console.error("Failed to parse AI response:", responseText)
-      await db.note.update({
-        where: { id: noteId },
-        data: {
-          processingStatus: "FAILED",
-          processingError: "Failed to parse AI response",
-          aiResponse: responseText,
-          processedAt: new Date(),
-        },
-      })
-      return { success: false, error: "Failed to parse AI response" }
+      result = JSON.parse(jsonMatch[0])
+    } else {
+      // Structured output via tool_use / function_calling
+      const toolResult = await aiClient.completeWithTools<ProcessingResult>(
+        DEFAULT_SYSTEM_PROMPT,
+        `Poznamka k analyze:\n\n${content}`,
+        NOTE_ANALYSIS_TOOL
+      )
+
+      if (!toolResult) {
+        throw new Error("AI did not return structured output")
+      }
+
+      result = toolResult
+      responseText = JSON.stringify(toolResult, null, 2)
     }
 
     // Handle skip case
@@ -209,11 +182,11 @@ export async function processNote(
       data: {
         userId: note.userId,
         noteId: note.id,
-        title: result.title || "Bez názvu",
+        title: result.title || "Bez nazvu",
         description: result.description || "",
-        category: categoryMap[result.category?.toLowerCase() || "thought"] || "THOUGHT",
-        potential: potentialMap[result.potential?.toLowerCase() || "střední"] || "MEDIUM",
-        type: typeMap[result.type?.toLowerCase() || "koncept"] || "CONCEPT",
+        category: CATEGORY_MAP[result.category?.toLowerCase() || "thought"] || "THOUGHT",
+        potential: POTENTIAL_MAP[result.potential?.toLowerCase() || "medium"] || "MEDIUM",
+        type: TYPE_MAP[result.type?.toLowerCase() || "concept"] || "CONCEPT",
         nextSteps: result.next_steps || [],
         status: "NEW",
       },

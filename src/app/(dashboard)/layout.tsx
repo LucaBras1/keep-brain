@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRequireAuth } from "@/hooks/use-auth"
+import { useServerEvents } from "@/hooks/use-server-events"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { MobileSidebar } from "@/components/layout/mobile-sidebar"
@@ -14,6 +15,9 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading } = useRequireAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Connect to SSE for real-time updates (replaces polling)
+  useServerEvents({ enabled: !!user })
 
   if (isLoading) {
     return (

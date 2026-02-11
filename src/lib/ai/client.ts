@@ -16,6 +16,19 @@ export interface AiClient {
     userContent: string,
     options?: { temperature?: number; maxTokens?: number }
   ) => Promise<string>
+  completeWithTools: <T>(
+    systemPrompt: string,
+    userContent: string,
+    toolSchema: ToolSchema,
+    options?: { temperature?: number; maxTokens?: number }
+  ) => Promise<T | null>
+}
+
+// Tool schema definition for structured output
+export interface ToolSchema {
+  name: string
+  description: string
+  parameters: Record<string, unknown>
 }
 
 // Lazy-loaded Anthropic client for env-based usage
@@ -75,6 +88,37 @@ function createClaudeClient(
 
       return message.content[0].type === "text" ? message.content[0].text : ""
     },
+    async completeWithTools<T>(
+      systemPrompt: string,
+      userContent: string,
+      toolSchema: ToolSchema,
+      options: { temperature?: number; maxTokens?: number } = {}
+    ): Promise<T | null> {
+      const message = await client.messages.create({
+        model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? defaultTemperature,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+        tools: [
+          {
+            name: toolSchema.name,
+            description: toolSchema.description,
+            input_schema: toolSchema.parameters as Anthropic.Messages.Tool.InputSchema,
+          },
+        ],
+        tool_choice: { type: "tool", name: toolSchema.name },
+      })
+
+      // Extract tool use result
+      for (const block of message.content) {
+        if (block.type === "tool_use" && block.name === toolSchema.name) {
+          return block.input as T
+        }
+      }
+
+      return null
+    },
   }
 }
 
@@ -110,6 +154,43 @@ function createOpenAiClient(
       })
 
       return response.choices[0]?.message?.content || ""
+    },
+    async completeWithTools<T>(
+      systemPrompt: string,
+      userContent: string,
+      toolSchema: ToolSchema,
+      options: { temperature?: number; maxTokens?: number } = {}
+    ): Promise<T | null> {
+      const response = await client.chat.completions.create({
+        model,
+        max_tokens: options.maxTokens || 1024,
+        temperature: options.temperature ?? defaultTemperature,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: toolSchema.name,
+              description: toolSchema.description,
+              parameters: toolSchema.parameters,
+            },
+          },
+        ],
+        tool_choice: {
+          type: "function",
+          function: { name: toolSchema.name },
+        },
+      })
+
+      const toolCall = response.choices[0]?.message?.tool_calls?.[0]
+      if (toolCall && "function" in toolCall && toolCall.function?.arguments) {
+        return JSON.parse(toolCall.function.arguments) as T
+      }
+
+      return null
     },
   }
 }
@@ -187,17 +268,5 @@ export async function validateApiKey(
   }
 }
 
-// Available models for each provider
-export const CLAUDE_MODELS = [
-  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4 (Recommended)" },
-  { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
-  { id: "claude-3-opus-20240229", name: "Claude 3 Opus" },
-  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku (Fastest)" },
-]
-
-export const OPENAI_MODELS = [
-  { id: "gpt-4o", name: "GPT-4o (Recommended)" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini (Fastest)" },
-  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
-  { id: "gpt-4", name: "GPT-4" },
-]
+// Re-export models from constants for backwards compatibility
+export { CLAUDE_MODELS, OPENAI_MODELS } from "@/lib/constants"

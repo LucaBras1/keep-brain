@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-// Načtení .env souboru pro PM2
+// Nacte .env souboru pro PM2
 require("dotenv").config();
 
 module.exports = {
@@ -36,6 +36,24 @@ module.exports = {
         NODE_ENV: "production",
         DATABASE_URL: process.env.DATABASE_URL,
         REDIS_URL: process.env.REDIS_URL,
+      },
+    },
+    {
+      name: "keep-brain-ai-worker",
+      script: "node_modules/.bin/tsx",
+      args: "worker/ai-worker.ts",
+      cwd: "/www/hosting/muzx.cz/keep",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+        DATABASE_URL: process.env.DATABASE_URL,
+        REDIS_URL: process.env.REDIS_URL,
+        ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+        ENCRYPTION_SALT: process.env.ENCRYPTION_SALT,
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
       },
     },
   ],
