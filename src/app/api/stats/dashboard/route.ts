@@ -15,6 +15,7 @@ export async function GET() {
       pendingNotes,
       failedNotes,
       skippedNotes,
+      categorizedNotes,
       processingNotes,
       totalIdeas,
       ideasByCategoryRaw,
@@ -37,6 +38,9 @@ export async function GET() {
       }),
       db.note.count({
         where: { userId: user.id, processingStatus: "SKIPPED" },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "CATEGORIZED" },
       }),
       db.note.count({
         where: { userId: user.id, processingStatus: "PROCESSING" },
@@ -78,6 +82,8 @@ export async function GET() {
         select: {
           id: true,
           title: true,
+          generatedTitle: true,
+          noteCategory: true,
           source: true,
           processingStatus: true,
           createdAt: true,
@@ -101,6 +107,7 @@ export async function GET() {
       pendingNotes,
       failedNotes,
       skippedNotes,
+      categorizedNotes,
       processingNotes,
       totalIdeas,
       ideasByCategory,

@@ -1,19 +1,26 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
+import type { ProcessingStatus } from "@/generated/prisma"
 import { addBatchAiProcessingJobs, type AiProcessingJob } from "@/lib/queue"
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Neprihlsen" }, { status: 401 })
     }
 
+    const includeSkipped = request.nextUrl.searchParams.get("includeSkipped") === "true"
+    const statuses: ProcessingStatus[] = ["PENDING", "FAILED"]
+    if (includeSkipped) {
+      statuses.push("SKIPPED")
+    }
+
     const notes = await db.note.findMany({
       where: {
         userId: user.id,
-        processingStatus: { in: ["PENDING", "FAILED"] },
+        processingStatus: { in: statuses },
       },
       select: {
         id: true,

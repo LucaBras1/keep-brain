@@ -25,6 +25,20 @@ enum ProcessingStatus {
   COMPLETED
   FAILED
   SKIPPED
+  CATEGORIZED
+}
+
+enum NoteCategory {
+  SOCIAL_MEDIA
+  VIDEO
+  LINK
+  POETRY
+  LYRICS
+  WRITING
+  SHOPPING
+  TODO
+  REFERENCE
+  JOURNAL
 }
 
 enum AiDecision {
@@ -208,6 +222,11 @@ model Note {
   processingError  String?
   processedAt      DateTime?
 
+  // AI categorization (for non-idea notes)
+  noteCategory     NoteCategory?
+  generatedTitle   String?
+  summary          String?          @db.Text
+
   // Source tracking
   source           String           @default("keep") // "keep" | "manual" | "quick_capture"
   sourceId         String?          // FK to NoteSource (optional during migration)
@@ -234,6 +253,7 @@ model Note {
   @@index([keepId])
   @@index([sourceId])
   @@index([contentHash])
+  @@index([noteCategory])
 }
 
 model Idea {

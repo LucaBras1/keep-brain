@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { notesApi, type Note } from "@/lib/api"
 import { detectContentType, contentTypeLabels, contentTypeFilterOptions } from "@/lib/content-type"
+import { NOTE_CATEGORY_LABELS } from "@/lib/constants"
 import { toast } from "@/hooks/use-toast"
 import {
   Card,
@@ -38,6 +39,7 @@ import {
   CheckCircle2,
   XCircle,
   SkipForward,
+  FolderOpen,
   Loader2,
   Plus,
   ChevronsLeft,
@@ -53,6 +55,7 @@ const statusOptions = [
   { value: "PENDING", label: "Ceka na zpracovani" },
   { value: "PROCESSING", label: "Zpracovava se" },
   { value: "COMPLETED", label: "Zpracovano" },
+  { value: "CATEGORIZED", label: "Kategorizovano" },
   { value: "FAILED", label: "Chyba" },
   { value: "SKIPPED", label: "Preskoceno" },
 ]
@@ -61,6 +64,7 @@ const statusLabels: Record<string, string> = {
   PENDING: "Ceka",
   PROCESSING: "Zpracovava se",
   COMPLETED: "Zpracovano",
+  CATEGORIZED: "Kategorizovano",
   FAILED: "Chyba",
   SKIPPED: "Preskoceno",
 }
@@ -72,6 +76,7 @@ const statusColors: Record<
   PENDING: "secondary",
   PROCESSING: "warning",
   COMPLETED: "success",
+  CATEGORIZED: "secondary",
   FAILED: "destructive",
   SKIPPED: "default",
 }
@@ -84,6 +89,8 @@ const StatusIcon = ({ status }: { status: string }) => {
       return <Loader2 className="h-4 w-4 animate-spin" />
     case "COMPLETED":
       return <CheckCircle2 className="h-4 w-4" />
+    case "CATEGORIZED":
+      return <FolderOpen className="h-4 w-4" />
     case "FAILED":
       return <XCircle className="h-4 w-4" />
     case "SKIPPED":
@@ -356,7 +363,7 @@ function NoteCard({
           <div className="space-y-1 flex-1">
             <Link href={`/notes/${note.id}`}>
               <CardTitle className="line-clamp-1 hover:underline cursor-pointer">
-                {note.title || "Bez nazvu"}
+                {note.title || note.generatedTitle || "Bez nazvu"}
               </CardTitle>
             </Link>
             <CardDescription className="flex items-center gap-2 flex-wrap">
@@ -375,6 +382,11 @@ function NoteCard({
               {contentType !== "text" && (
                 <Badge variant="secondary">
                   {contentTypeLabels[contentType]}
+                </Badge>
+              )}
+              {note.noteCategory && (
+                <Badge variant="outline" className="text-xs">
+                  {NOTE_CATEGORY_LABELS[note.noteCategory] || note.noteCategory}
                 </Badge>
               )}
               {note.labels.length > 0 && (
@@ -414,6 +426,9 @@ function NoteCard({
       </CardHeader>
       <CardContent>
         <Link href={`/notes/${note.id}`} className="block">
+          {note.summary && (
+            <p className="text-xs text-primary/80 mb-1 italic">{note.summary}</p>
+          )}
           <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
             {note.content}
           </p>

@@ -80,12 +80,15 @@ export interface Note {
   isArchived: boolean
   isTrashed: boolean
   color: string | null
-  processingStatus: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "SKIPPED"
+  processingStatus: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "SKIPPED" | "CATEGORIZED"
   aiDecision: "EXTRACTED" | "SKIPPED" | "ERROR" | null
   aiResponse: string | null
   processingError: string | null
   processedAt: string | null
   source: string
+  noteCategory: "SOCIAL_MEDIA" | "VIDEO" | "LINK" | "POETRY" | "LYRICS" | "WRITING" | "SHOPPING" | "TODO" | "REFERENCE" | "JOURNAL" | null
+  generatedTitle: string | null
+  summary: string | null
   keepCreatedAt: string | null
   keepUpdatedAt: string | null
   createdAt: string
@@ -143,6 +146,7 @@ export interface DashboardStats {
   pendingNotes: number
   failedNotes: number
   skippedNotes: number
+  categorizedNotes: number
   processingNotes: number
   totalIdeas: number
   ideasByCategory: Record<string, number>
@@ -152,6 +156,8 @@ export interface DashboardStats {
   recentNotes: Array<{
     id: string
     title: string | null
+    generatedTitle: string | null
+    noteCategory: string | null
     source: string
     processingStatus: string
     createdAt: string
@@ -199,10 +205,21 @@ export const notesApi = {
       method: "POST",
     }),
 
-  reprocessAll: () =>
-    fetchAPI<{ enqueued: number }>("/api/notes/reprocess-all", {
-      method: "POST",
-    }),
+  reprocessAll: (params?: { includeSkipped?: boolean }) =>
+    fetchAPI<{ enqueued: number }>(
+      `/api/notes/reprocess-all${params?.includeSkipped ? "?includeSkipped=true" : ""}`,
+      { method: "POST" }
+    ),
+
+  listByCategory: (category: string, params?: { page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set("page", params.page.toString())
+    if (params?.limit) searchParams.set("limit", params.limit.toString())
+    const query = searchParams.toString()
+    return fetchAPI<{ notes: Note[]; total: number }>(
+      `/api/notes/by-category/${category}${query ? `?${query}` : ""}`
+    )
+  },
 }
 
 // Ideas API

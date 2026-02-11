@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   XCircle,
   SkipForward,
+  FolderOpen,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -56,6 +57,7 @@ const noteStatusIcons: Record<string, React.ReactNode> = {
   COMPLETED: <CheckCircle2 className="h-3.5 w-3.5" />,
   FAILED: <XCircle className="h-3.5 w-3.5" />,
   SKIPPED: <SkipForward className="h-3.5 w-3.5" />,
+  CATEGORIZED: <FolderOpen className="h-3.5 w-3.5" />,
 }
 
 const noteStatusColors: Record<
@@ -67,6 +69,7 @@ const noteStatusColors: Record<
   COMPLETED: "success",
   FAILED: "destructive",
   SKIPPED: "default",
+  CATEGORIZED: "secondary",
 }
 
 export default function DashboardPage() {
@@ -82,6 +85,24 @@ export default function DashboardPage() {
     onSuccess: (data) => {
       toast({
         title: `${data.enqueued} poznamek zarazeno ke zpracovani`,
+      })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["notes"] })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Chyba",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  const reprocessSkippedMutation = useMutation({
+    mutationFn: () => notesApi.reprocessAll({ includeSkipped: true }),
+    onSuccess: (data) => {
+      toast({
+        title: `${data.enqueued} poznamek zarazeno ke kategorizaci`,
       })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
@@ -190,20 +211,37 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Stav zpracovani</CardTitle>
-            {unprocessedCount > 0 && (
-              <Button
-                size="sm"
-                onClick={() => reprocessAllMutation.mutate()}
-                disabled={reprocessAllMutation.isPending}
-              >
-                {reprocessAllMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Zpracovat vse ({unprocessedCount})
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {(stats?.skippedNotes || 0) > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => reprocessSkippedMutation.mutate()}
+                  disabled={reprocessSkippedMutation.isPending}
+                >
+                  {reprocessSkippedMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                  )}
+                  Kategorizovat ({stats.skippedNotes})
+                </Button>
+              )}
+              {unprocessedCount > 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => reprocessAllMutation.mutate()}
+                  disabled={reprocessAllMutation.isPending}
+                >
+                  {reprocessAllMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Zpracovat vse ({unprocessedCount})
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -243,6 +281,15 @@ export default function DashboardPage() {
                       width: `${(stats.failedNotes / stats.totalNotes) * 100}%`,
                     }}
                     title={`Chyba: ${stats.failedNotes}`}
+                  />
+                )}
+                {stats.categorizedNotes > 0 && (
+                  <div
+                    className="bg-blue-400 transition-all"
+                    style={{
+                      width: `${(stats.categorizedNotes / stats.totalNotes) * 100}%`,
+                    }}
+                    title={`Kategorizovano: ${stats.categorizedNotes}`}
                   />
                 )}
                 {stats.skippedNotes > 0 && (
@@ -286,6 +333,14 @@ export default function DashboardPage() {
                     <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
                     <span className="text-muted-foreground">
                       Chyba: {stats.failedNotes}
+                    </span>
+                  </div>
+                )}
+                {stats.categorizedNotes > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+                    <span className="text-muted-foreground">
+                      Kategorizovano: {stats.categorizedNotes}
                     </span>
                   </div>
                 )}
@@ -404,7 +459,7 @@ export default function DashboardPage() {
                 >
                   <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="font-medium text-sm truncate flex-1">
-                    {note.title || "Bez nazvu"}
+                    {note.title || note.generatedTitle || "Bez nazvu"}
                   </span>
                   <Badge
                     variant={noteStatusColors[note.processingStatus]}

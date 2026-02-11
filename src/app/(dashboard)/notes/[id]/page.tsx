@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { notesApi, ideasApi, type Note } from "@/lib/api"
 import { detectContentType, extractUrls, contentTypeLabels, contentTypeIcons } from "@/lib/content-type"
+import { NOTE_CATEGORY_LABELS } from "@/lib/constants"
 import { toast } from "@/hooks/use-toast"
 import {
   Card,
@@ -39,6 +40,7 @@ import {
   CheckCircle2,
   XCircle,
   SkipForward,
+  FolderOpen,
   Lightbulb,
   Link as LinkIcon,
 } from "lucide-react"
@@ -50,6 +52,7 @@ const statusLabels: Record<string, string> = {
   PENDING: "Ceka",
   PROCESSING: "Zpracovava se",
   COMPLETED: "Zpracovano",
+  CATEGORIZED: "Kategorizovano",
   FAILED: "Chyba",
   SKIPPED: "Preskoceno",
 }
@@ -61,6 +64,7 @@ const statusColors: Record<
   PENDING: "secondary",
   PROCESSING: "warning",
   COMPLETED: "success",
+  CATEGORIZED: "secondary",
   FAILED: "destructive",
   SKIPPED: "default",
 }
@@ -73,6 +77,8 @@ const StatusIcon = ({ status }: { status: string }) => {
       return <Loader2 className="h-4 w-4 animate-spin" />
     case "COMPLETED":
       return <CheckCircle2 className="h-4 w-4" />
+    case "CATEGORIZED":
+      return <FolderOpen className="h-4 w-4" />
     case "FAILED":
       return <XCircle className="h-4 w-4" />
     case "SKIPPED":
@@ -329,7 +335,7 @@ export default function NoteDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">
-            {note.title || "Bez nazvu"}
+            {note.title || note.generatedTitle || "Bez nazvu"}
           </CardTitle>
           <div className="flex items-center gap-2 flex-wrap mt-2">
             <Badge variant={statusColors[note.processingStatus]}>
@@ -352,10 +358,25 @@ export default function NoteDetailPage() {
                 {contentTypeIcons[contentType]} {contentTypeLabels[contentType]}
               </Badge>
             )}
+            {note.noteCategory && (
+              <Badge variant="outline">
+                {NOTE_CATEGORY_LABELS[note.noteCategory] || note.noteCategory}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <Separator />
+
+          {/* AI Summary */}
+          {note.summary && (
+            <div className="p-3 bg-muted/50 rounded-md">
+              <h3 className="font-semibold mb-1 text-sm">AI shrnuti</h3>
+              <p className="text-sm text-muted-foreground italic">
+                {note.summary}
+              </p>
+            </div>
+          )}
 
           {/* Content */}
           <div>

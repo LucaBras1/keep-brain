@@ -62,6 +62,51 @@ export const TYPE_MAP: Record<
   wisdom: "WISDOM",
 }
 
+// Note category mapping (lowercase -> Prisma enum)
+export const NOTE_CATEGORY_MAP: Record<string, "SOCIAL_MEDIA" | "VIDEO" | "LINK" | "POETRY" | "LYRICS" | "WRITING" | "SHOPPING" | "TODO" | "REFERENCE" | "JOURNAL"> = {
+  social_media: "SOCIAL_MEDIA",
+  video: "VIDEO",
+  link: "LINK",
+  poetry: "POETRY",
+  lyrics: "LYRICS",
+  writing: "WRITING",
+  shopping: "SHOPPING",
+  todo: "TODO",
+  reference: "REFERENCE",
+  journal: "JOURNAL",
+}
+
+export const NOTE_CATEGORY_LABELS: Record<string, string> = {
+  SOCIAL_MEDIA: "Social Media",
+  VIDEO: "Video",
+  LINK: "Odkazy",
+  POETRY: "Basne",
+  LYRICS: "Texty pisni",
+  WRITING: "Psani",
+  SHOPPING: "Nakupy",
+  TODO: "Ukoly",
+  REFERENCE: "Reference",
+  JOURNAL: "Denik",
+}
+
+export const NOTE_CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  SOCIAL_MEDIA: "Instagram, TikTok, Twitter/X, Facebook posty a obsah ze socialnich siti",
+  VIDEO: "YouTube, Vimeo a dalsi video obsah",
+  LINK: "Webove clanky, bookmarky a zajimave odkazy",
+  POETRY: "Basne a poeticka tvorba",
+  LYRICS: "Texty pisni a hudebni obsah",
+  WRITING: "Pribehy, kreativni psani, vtipy a texty",
+  SHOPPING: "Nakupni seznamy a wishlists",
+  TODO: "Ukoly, to-do listy a checklisty",
+  REFERENCE: "Hesla, kontakty, adresy, kody a PINy",
+  JOURNAL: "Osobni denik, reflexe, vzpominky a udalosti",
+}
+
+export const NOTE_CATEGORIES = [
+  "SOCIAL_MEDIA", "VIDEO", "LINK", "POETRY", "LYRICS",
+  "WRITING", "SHOPPING", "TODO", "REFERENCE", "JOURNAL",
+] as const
+
 // Note sources
 export const NOTE_SOURCES = {
   KEEP: "keep",
