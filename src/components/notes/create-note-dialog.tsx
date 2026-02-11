@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
 import { notesApi } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ export function CreateNoteDialog({
   onOpenChange,
 }: CreateNoteDialogProps) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
 
@@ -37,10 +40,16 @@ export function CreateNoteDialog({
         title: title || undefined,
         content,
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "Poznámka vytvořena",
-        description: "Poznámka bude zpracována AI.",
+        title: "Poznamka vytvorena!",
+        description: "AI ji brzy zpracuje.",
+        variant: "success",
+        action: data?.note?.id ? (
+          <ToastAction altText="Zobrazit" onClick={() => router.push(`/notes/${data.note.id}`)}>
+            Zobrazit
+          </ToastAction>
+        ) : undefined,
       })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })

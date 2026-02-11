@@ -60,6 +60,7 @@ export const ideaSchema = z.object({
     .enum(["NEW", "IN_PROGRESS", "REVIEW", "IMPLEMENTED", "ARCHIVED"])
     .optional(),
   nextSteps: z.array(z.string()).optional(),
+  completedSteps: z.array(z.number()).optional(),
   tags: z.array(z.string()).optional(),
   userNotes: z.string().optional(),
 })

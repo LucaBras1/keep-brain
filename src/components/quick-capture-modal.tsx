@@ -65,6 +65,7 @@ export function QuickCaptureModal({ open, onOpenChange, onSuccess }: QuickCaptur
       toast({
         title: "Zachyceno!",
         description: "AI na tom pracuje.",
+        variant: "success",
       })
       setTimeout(() => {
         onOpenChange(false)

@@ -1,31 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ideasApi, type Idea, type IdeaCreateInput } from "@/lib/api"
+import { ideasApi, type IdeaCreateInput } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 import { useRecentItems } from "@/hooks/use-recent-items"
 import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -36,21 +26,23 @@ import {
 } from "@/components/ui/dialog"
 import {
   ArrowLeft,
-  Edit,
   Trash2,
   Loader2,
   Lightbulb,
   ExternalLink,
-  Circle,
   Sparkles,
   Play,
   Eye,
   CheckCircle2,
   Archive,
+  Save,
 } from "lucide-react"
 import Link from "next/link"
 import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
+import { InlineEdit } from "@/components/inline-edit"
+import { InlineSelect } from "@/components/inline-select"
+import { cn } from "@/lib/utils"
 
 const statusIcons: Record<string, React.ReactNode> = {
   NEW: <Sparkles className="h-3.5 w-3.5" />,
@@ -144,8 +136,8 @@ export default function IdeaDetailPage() {
   const queryClient = useQueryClient()
   const id = params.id as string
 
-  const [isEditing, setIsEditing] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [savingField, setSavingField] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["ideas", id],
@@ -168,50 +160,26 @@ export default function IdeaDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idea?.id])
 
-  // Edit form state
-  const [editTitle, setEditTitle] = useState("")
-  const [editDescription, setEditDescription] = useState("")
-  const [editCategory, setEditCategory] = useState("")
-  const [editPotential, setEditPotential] = useState("")
-  const [editType, setEditType] = useState("")
-  const [editStatus, setEditStatus] = useState("")
-  const [editTags, setEditTags] = useState("")
-  const [editNextSteps, setEditNextSteps] = useState("")
-  const [editUserNotes, setEditUserNotes] = useState("")
-
-  const startEditing = (idea: Idea) => {
-    setEditTitle(idea.title)
-    setEditDescription(idea.description)
-    setEditCategory(idea.category)
-    setEditPotential(idea.potential)
-    setEditType(idea.type)
-    setEditStatus(idea.status)
-    setEditTags(idea.tags.map(({ tag }) => tag.name).join(", "))
-    setEditNextSteps(idea.nextSteps.join("\n"))
-    setEditUserNotes(idea.userNotes || "")
-    setIsEditing(true)
-  }
-
-  const updateMutation = useMutation({
+  const updateFieldMutation = useMutation({
     mutationFn: (data: Partial<IdeaCreateInput>) => ideasApi.update(id, data),
     onSuccess: () => {
-      toast({ title: "Zmeny ulozeny. Jdete na to!" })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
-      setIsEditing(false)
+      setSavingField(null)
     },
     onError: (error: Error) => {
       toast({
-        title: "Chyba pri aktualizaci",
+        title: "Chyba pri ukladani",
         description: error.message,
         variant: "destructive",
       })
+      setSavingField(null)
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => ideasApi.delete(id),
     onSuccess: () => {
-      toast({ title: "Napad smazan" })
+      toast({ title: "Napad smazan", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       router.push("/ideas")
@@ -225,29 +193,26 @@ export default function IdeaDetailPage() {
     },
   })
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault()
-    const nextSteps = editNextSteps
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const tags = editTags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
+  const saveField = useCallback(
+    (field: string, value: Partial<IdeaCreateInput>) => {
+      setSavingField(field)
+      updateFieldMutation.mutate(value)
+    },
+    [updateFieldMutation]
+  )
 
-    updateMutation.mutate({
-      title: editTitle,
-      description: editDescription,
-      category: editCategory as IdeaCreateInput["category"],
-      potential: editPotential as IdeaCreateInput["potential"],
-      type: editType as IdeaCreateInput["type"],
-      status: editStatus as IdeaCreateInput["status"],
-      nextSteps,
-      tags,
-      userNotes: editUserNotes || undefined,
-    })
-  }
+  const toggleStep = useCallback(
+    (stepIndex: number) => {
+      if (!idea) return
+      const completed = idea.completedSteps || []
+      const next = completed.includes(stepIndex)
+        ? completed.filter((i) => i !== stepIndex)
+        : [...completed, stepIndex]
+      setSavingField("steps")
+      updateFieldMutation.mutate({ completedSteps: next } as Partial<IdeaCreateInput>)
+    },
+    [idea, updateFieldMutation]
+  )
 
   if (isLoading) {
     return (
@@ -255,7 +220,6 @@ export default function IdeaDetailPage() {
         <div className="flex items-center gap-4">
           <Skeleton className="h-9 w-32" />
           <div className="flex-1" />
-          <Skeleton className="h-9 w-20" />
           <Skeleton className="h-9 w-20" />
         </div>
         <Card>
@@ -301,159 +265,10 @@ export default function IdeaDetailPage() {
     )
   }
 
-  if (isEditing) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Zrusit upravy
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Upravit napad</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="edit-title">Nazev</Label>
-                <Input
-                  id="edit-title"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Popis</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  required
-                  rows={6}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Kategorie</Label>
-                  <Select value={editCategory} onValueChange={setEditCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Potencial</Label>
-                  <Select value={editPotential} onValueChange={setEditPotential}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {potentialOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Typ</Label>
-                  <Select value={editType} onValueChange={setEditType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {typeOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Stav</Label>
-                  <Select value={editStatus} onValueChange={setEditStatus}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-tags">Tagy (oddelene carkou)</Label>
-                <Input
-                  id="edit-tags"
-                  value={editTags}
-                  onChange={(e) => setEditTags(e.target.value)}
-                  placeholder="startup, saas, mvp"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-nextsteps">Dalsi kroky (kazdy na novem radku)</Label>
-                <Textarea
-                  id="edit-nextsteps"
-                  value={editNextSteps}
-                  onChange={(e) => setEditNextSteps(e.target.value)}
-                  placeholder="Prvni krok&#10;Druhy krok&#10;Treti krok"
-                  rows={4}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-notes">Poznamky</Label>
-                <Textarea
-                  id="edit-notes"
-                  value={editUserNotes}
-                  onChange={(e) => setEditUserNotes(e.target.value)}
-                  placeholder="Vlastni poznamky k napadu..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex gap-3 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditing(false)}
-                >
-                  Zrusit
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Ulozit zmeny
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const completedSteps = idea.completedSteps || []
+  const completedCount = completedSteps.length
+  const totalSteps = idea.nextSteps.length
+  const allDone = totalSteps > 0 && completedCount === totalSteps
 
   return (
     <div className="space-y-6">
@@ -465,11 +280,13 @@ export default function IdeaDetailPage() {
             Zpet na napady
           </Button>
         </Link>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => startEditing(idea)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Upravit
-          </Button>
+        <div className="flex items-center gap-2">
+          {savingField && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground animate-in fade-in">
+              <Save className="h-3.5 w-3.5 animate-pulse" />
+              Uklada se...
+            </span>
+          )}
           <Button
             variant="destructive"
             size="sm"
@@ -484,17 +301,46 @@ export default function IdeaDetailPage() {
       {/* Main content */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">{idea.title}</CardTitle>
+          <InlineEdit
+            value={idea.title}
+            onSave={(v) => saveField("title", { title: v })}
+            isSaving={savingField === "title"}
+            textClassName="text-2xl font-semibold leading-none tracking-tight"
+          />
           <div className="flex items-center gap-2 flex-wrap mt-2">
-            <Badge variant="outline">{categoryLabels[idea.category]}</Badge>
-            <Badge variant={potentialColors[idea.potential]}>
-              {potentialLabels[idea.potential]}
-            </Badge>
-            <Badge variant="secondary">{typeLabels[idea.type]}</Badge>
-            <Badge variant={statusColors[idea.status]} className="gap-1">
-              {statusIcons[idea.status]}
-              {statusLabels[idea.status]}
-            </Badge>
+            <InlineSelect
+              value={idea.category}
+              options={categoryOptions}
+              onSave={(v) => saveField("category", { category: v as IdeaCreateInput["category"] })}
+              renderBadge={(v) => <Badge variant="outline">{categoryLabels[v]}</Badge>}
+              isSaving={savingField === "category"}
+            />
+            <InlineSelect
+              value={idea.potential}
+              options={potentialOptions}
+              onSave={(v) => saveField("potential", { potential: v as IdeaCreateInput["potential"] })}
+              renderBadge={(v) => <Badge variant={potentialColors[v]}>{potentialLabels[v]}</Badge>}
+              isSaving={savingField === "potential"}
+            />
+            <InlineSelect
+              value={idea.type}
+              options={typeOptions}
+              onSave={(v) => saveField("type", { type: v as IdeaCreateInput["type"] })}
+              renderBadge={(v) => <Badge variant="secondary">{typeLabels[v]}</Badge>}
+              isSaving={savingField === "type"}
+            />
+            <InlineSelect
+              value={idea.status}
+              options={statusOptions}
+              onSave={(v) => saveField("status", { status: v as IdeaCreateInput["status"] })}
+              renderBadge={(v) => (
+                <Badge variant={statusColors[v]} className="gap-1">
+                  {statusIcons[v]}
+                  {statusLabels[v]}
+                </Badge>
+              )}
+              isSaving={savingField === "status"}
+            />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -503,23 +349,60 @@ export default function IdeaDetailPage() {
           {/* Description */}
           <div>
             <h3 className="font-semibold mb-2">Popis</h3>
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {idea.description}
-            </p>
+            <InlineEdit
+              value={idea.description}
+              onSave={(v) => saveField("description", { description: v })}
+              type="textarea"
+              isSaving={savingField === "description"}
+              textClassName="text-muted-foreground whitespace-pre-wrap"
+            />
           </div>
 
           {/* Next Steps */}
           {idea.nextSteps.length > 0 && (
             <div>
-              <h3 className="font-semibold mb-2">Dalsi kroky</h3>
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                Dalsi kroky
+                {totalSteps > 0 && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({completedCount}/{totalSteps})
+                  </span>
+                )}
+              </h3>
               <ul className="space-y-2">
-                {idea.nextSteps.map((step, i) => (
-                  <li key={i} className="flex items-start gap-2 text-muted-foreground">
-                    <Circle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>{step}</span>
-                  </li>
-                ))}
+                {idea.nextSteps.map((step, i) => {
+                  const isCompleted = completedSteps.includes(i)
+                  return (
+                    <li
+                      key={i}
+                      className="flex items-start gap-3 group cursor-pointer"
+                      onClick={() => toggleStep(i)}
+                    >
+                      <Checkbox
+                        checked={isCompleted}
+                        onCheckedChange={() => toggleStep(i)}
+                        className="mt-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span
+                        className={cn(
+                          "text-sm transition-all",
+                          isCompleted
+                            ? "line-through text-muted-foreground/60"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {step}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
+              {allDone && (
+                <p className="text-sm text-green-600 dark:text-green-400 mt-3 font-medium">
+                  Vsechny kroky splneny!
+                </p>
+              )}
             </div>
           )}
 
@@ -538,14 +421,17 @@ export default function IdeaDetailPage() {
           )}
 
           {/* User Notes */}
-          {idea.userNotes && (
-            <div>
-              <h3 className="font-semibold mb-2">Poznamky</h3>
-              <p className="text-muted-foreground whitespace-pre-wrap">
-                {idea.userNotes}
-              </p>
-            </div>
-          )}
+          <div>
+            <h3 className="font-semibold mb-2">Poznamky</h3>
+            <InlineEdit
+              value={idea.userNotes || ""}
+              onSave={(v) => saveField("userNotes", { userNotes: v || undefined })}
+              type="textarea"
+              isSaving={savingField === "userNotes"}
+              textClassName="text-muted-foreground whitespace-pre-wrap"
+              placeholder="Klikni pro pridani poznamek..."
+            />
+          </div>
 
           {/* Source Note */}
           {idea.noteId && (

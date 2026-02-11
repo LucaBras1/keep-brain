@@ -101,7 +101,8 @@ export default function DashboardPage() {
     mutationFn: () => notesApi.reprocessAll(),
     onSuccess: (data) => {
       toast({
-        title: `${data.enqueued} poznamek zarazeno ke zpracovani`,
+        title: `${data.enqueued} poznamek zarazeno ke zpracovani!`,
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
@@ -119,7 +120,8 @@ export default function DashboardPage() {
     mutationFn: () => notesApi.reprocessAll({ includeSkipped: true }),
     onSuccess: (data) => {
       toast({
-        title: `${data.enqueued} poznamek zarazeno ke kategorizaci`,
+        title: `${data.enqueued} poznamek zarazeno ke kategorizaci!`,
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       queryClient.invalidateQueries({ queryKey: ["notes"] })

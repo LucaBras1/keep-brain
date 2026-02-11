@@ -114,6 +114,7 @@ export interface Idea {
     | "TIP"
   status: "NEW" | "IN_PROGRESS" | "REVIEW" | "IMPLEMENTED" | "ARCHIVED"
   nextSteps: string[]
+  completedSteps: number[]
   userNotes: string | null
   createdAt: string
   updatedAt: string
@@ -136,6 +137,7 @@ export interface IdeaCreateInput {
     | "TIP"
   status?: "NEW" | "IN_PROGRESS" | "REVIEW" | "IMPLEMENTED" | "ARCHIVED"
   nextSteps?: string[]
+  completedSteps?: number[]
   tags?: string[]
   userNotes?: string
 }
@@ -232,6 +234,7 @@ export const ideasApi = {
     status?: string
     search?: string
     noteId?: string
+    sort?: string
     page?: number
     limit?: number
   }) => {
@@ -241,6 +244,7 @@ export const ideasApi = {
     if (params?.status) searchParams.set("status", params.status)
     if (params?.search) searchParams.set("search", params.search)
     if (params?.noteId) searchParams.set("noteId", params.noteId)
+    if (params?.sort) searchParams.set("sort", params.sort)
     if (params?.page) searchParams.set("page", params.page.toString())
     if (params?.limit) searchParams.set("limit", params.limit.toString())
     const query = searchParams.toString()

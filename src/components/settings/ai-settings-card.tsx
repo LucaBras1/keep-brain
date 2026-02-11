@@ -61,8 +61,9 @@ export function AiSettingsCard() {
     mutationFn: settingsApi.setApiKey,
     onSuccess: (_, variables) => {
       toast({
-        title: "API klic ulozen",
+        title: "API klic ulozen!",
         description: `${variables.provider === "claude" ? "Claude" : "OpenAI"} API klic byl overen a ulozen.`,
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["aiSettings"] })
       if (variables.provider === "claude") {
@@ -86,6 +87,7 @@ export function AiSettingsCard() {
       toast({
         title: "API klic odstranen",
         description: `${provider === "claude" ? "Claude" : "OpenAI"} API klic byl odstranen.`,
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["aiSettings"] })
     },
@@ -103,8 +105,9 @@ export function AiSettingsCard() {
     mutationFn: settingsApi.updateAiSettings,
     onSuccess: () => {
       toast({
-        title: "Nastaveni ulozeno",
+        title: "Nastaveni ulozeno!",
         description: "AI nastaveni bylo aktualizovano.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["aiSettings"] })
     },

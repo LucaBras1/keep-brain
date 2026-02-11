@@ -270,7 +270,8 @@ model Idea {
   status      IdeaStatus @default(NEW)
 
   // AI generated
-  nextSteps   String[]   // Action items
+  nextSteps      String[]   // Action items
+  completedSteps Int[]      @default([]) // Indices of completed steps
 
   // User additions
   userNotes   String?    @db.Text

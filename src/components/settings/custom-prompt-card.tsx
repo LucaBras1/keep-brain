@@ -39,8 +39,9 @@ export function CustomPromptCard() {
     mutationFn: settingsApi.updateAiSettings,
     onSuccess: () => {
       toast({
-        title: "Nastaveni ulozeno",
+        title: "Prompt ulozen!",
         description: "Prompt byl aktualizovan.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["aiSettings"] })
     },

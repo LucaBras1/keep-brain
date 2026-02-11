@@ -14,7 +14,7 @@ export function ReferenceView({ notes }: { notes: Note[] }) {
     e.preventDefault()
     e.stopPropagation()
     navigator.clipboard.writeText(text)
-    toast({ title: "Zkopirowano do schranky" })
+    toast({ title: "Zkopirowano do schranky!", variant: "success" })
   }
 
   return (

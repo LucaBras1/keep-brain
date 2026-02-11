@@ -122,7 +122,7 @@ export default function NoteDetailPage() {
     mutationFn: (data: { title?: string; content?: string }) =>
       notesApi.update(id, data),
     onSuccess: () => {
-      toast({ title: "Poznamka aktualizovana" })
+      toast({ title: "Zmeny ulozeny!", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
       setIsEditing(false)
     },
@@ -138,7 +138,7 @@ export default function NoteDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => notesApi.delete(id),
     onSuccess: () => {
-      toast({ title: "Poznamka smazana" })
+      toast({ title: "Poznamka smazana", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       router.push("/notes")
@@ -155,7 +155,7 @@ export default function NoteDetailPage() {
   const reprocessMutation = useMutation({
     mutationFn: () => notesApi.reprocess(id),
     onSuccess: () => {
-      toast({ title: "Poznamka pridana do fronty na zpracovani" })
+      toast({ title: "Zarazeno ke zpracovani!", description: "AI na tom pracuje.", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
     },
     onError: (error: Error) => {

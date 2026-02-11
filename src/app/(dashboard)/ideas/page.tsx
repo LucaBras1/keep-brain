@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ideasApi, statsApi, type Idea } from "@/lib/api"
+import { ideasApi, statsApi, type Idea, type IdeaCreateInput } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { useDebounce } from "@/hooks/use-debounce"
 import { toast } from "@/hooks/use-toast"
 import {
@@ -30,6 +31,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   Search,
   MoreVertical,
@@ -43,12 +50,21 @@ import {
   Eye,
   CheckCircle2,
   Archive,
+  ChevronRight,
+  ChevronDown,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
+import { needsAttention, getAttentionReason } from "@/lib/idea-helpers"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 const statusIcons: Record<string, React.ReactNode> = {
   NEW: <Sparkles className="h-3 w-3" />,
@@ -87,6 +103,12 @@ const potentialOptions = [
   { value: "HIGH", label: "Vysoky" },
   { value: "MEDIUM", label: "Stredni" },
   { value: "LOW", label: "Nizky" },
+]
+
+const sortOptions = [
+  { value: "attention", label: "Potrebuje pozornost" },
+  { value: "recent", label: "Nejnovejsi" },
+  { value: "updated", label: "Naposledy aktualizovane" },
 ]
 
 const statusOptions = [
@@ -137,6 +159,7 @@ export default function IdeasPage() {
   const [category, setCategory] = useState(initialCategory)
   const [potential, setPotential] = useState("all")
   const [status, setStatus] = useState("all")
+  const [sort, setSort] = useState("attention")
   const [createOpen, setCreateOpen] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
 
@@ -149,13 +172,14 @@ export default function IdeasPage() {
   }, [searchParams])
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ideas", { search: debouncedSearch, category, potential, status }],
+    queryKey: ["ideas", { search: debouncedSearch, category, potential, status, sort }],
     queryFn: () =>
       ideasApi.list({
         search: debouncedSearch || undefined,
         category: category !== "all" ? category : undefined,
         potential: potential !== "all" ? potential : undefined,
         status: status !== "all" ? status : undefined,
+        sort,
       }),
   })
 
@@ -167,7 +191,7 @@ export default function IdeasPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => ideasApi.delete(id),
     onSuccess: () => {
-      toast({ title: "Napad smazan" })
+      toast({ title: "Napad smazan", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
     },
@@ -230,7 +254,19 @@ export default function IdeasPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Select value={sort} onValueChange={setSort}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Razeni" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={potential} onValueChange={setPotential}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Potencial" />
@@ -319,13 +355,49 @@ function IdeaCard({
   idea: Idea
   onDelete: () => void
 }) {
+  const queryClient = useQueryClient()
+  const attention = needsAttention(idea)
+  const attentionReason = getAttentionReason(idea)
+  const [stepsOpen, setStepsOpen] = useState(false)
+
+  const completedSteps = useMemo(() => idea.completedSteps || [], [idea.completedSteps])
+  const totalSteps = idea.nextSteps.length
+  const completedCount = completedSteps.length
+  const allDone = totalSteps > 0 && completedCount === totalSteps
+
+  const toggleStepMutation = useMutation({
+    mutationFn: (newCompleted: number[]) =>
+      ideasApi.update(idea.id, { completedSteps: newCompleted } as Partial<IdeaCreateInput>),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ideas"] })
+    },
+  })
+
+  const toggleStep = useCallback(
+    (stepIndex: number) => {
+      const next = completedSteps.includes(stepIndex)
+        ? completedSteps.filter((i) => i !== stepIndex)
+        : [...completedSteps, stepIndex]
+      toggleStepMutation.mutate(next)
+    },
+    [completedSteps, toggleStepMutation]
+  )
+
   return (
-    <Card className="group">
+    <Card className={cn("group", attention && "border-orange-300/50 dark:border-orange-500/30")}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1">
             <Link href={`/ideas/${idea.id}`}>
-              <CardTitle className="line-clamp-2 hover:underline cursor-pointer">
+              <CardTitle className="line-clamp-2 hover:underline cursor-pointer flex items-center gap-2">
+                {attention && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-400 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>{attentionReason}</TooltipContent>
+                  </Tooltip>
+                )}
                 {idea.title}
               </CardTitle>
             </Link>
@@ -387,6 +459,68 @@ function IdeaCard({
             )}
           </div>
         )}
+
+        {/* Expandable Next Steps */}
+        {totalSteps > 0 && (
+          <Collapsible open={stepsOpen} onOpenChange={setStepsOpen} className="mb-3">
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
+                {stepsOpen ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+                <span className="font-medium">Dalsi kroky</span>
+                <span className={cn(
+                  "text-[10px]",
+                  allDone && "text-green-600 dark:text-green-400"
+                )}>
+                  ({completedCount}/{totalSteps})
+                </span>
+                {toggleStepMutation.isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin ml-auto" />
+                )}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ul className="mt-2 space-y-1.5 pl-1">
+                {idea.nextSteps.map((step, i) => {
+                  const isCompleted = completedSteps.includes(i)
+                  return (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 cursor-pointer"
+                      onClick={() => toggleStep(i)}
+                    >
+                      <Checkbox
+                        checked={isCompleted}
+                        onCheckedChange={() => toggleStep(i)}
+                        className="mt-0.5 h-3.5 w-3.5"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span
+                        className={cn(
+                          "text-xs transition-all",
+                          isCompleted
+                            ? "line-through text-muted-foreground/60"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {step}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              {allDone && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-medium pl-1">
+                  Vsechny kroky splneny!
+                </p>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span title={format(new Date(idea.createdAt), "d. MMMM yyyy", { locale: cs })}>
             {formatDistanceToNow(new Date(idea.createdAt), { addSuffix: true, locale: cs })}

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20") || 20, 1), 100)
 
     const noteId = searchParams.get("noteId")
+    const sort = searchParams.get("sort") || "attention"
 
     const where: Record<string, unknown> = { userId: user.id }
 
@@ -41,10 +42,24 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    let orderBy: Record<string, string>[] | Record<string, string>
+    switch (sort) {
+      case "attention":
+        orderBy = [{ potential: "desc" }, { updatedAt: "asc" }]
+        break
+      case "updated":
+        orderBy = { updatedAt: "desc" }
+        break
+      case "recent":
+      default:
+        orderBy = { createdAt: "desc" }
+        break
+    }
+
     const [ideas, total] = await Promise.all([
       db.idea.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
         include: {

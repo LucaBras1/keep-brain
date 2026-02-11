@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
 import { ideasApi } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,7 @@ export function CreateIdeaDialog({
   onOpenChange,
 }: CreateIdeaDialogProps) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("BUSINESS")
@@ -87,8 +90,16 @@ export function CreateIdeaDialog({
           .map((t) => t.trim())
           .filter(Boolean),
       }),
-    onSuccess: () => {
-      toast({ title: "Nápad vytvořen" })
+    onSuccess: (data) => {
+      toast({
+        title: "Napad vytvoren!",
+        variant: "success",
+        action: data?.idea?.id ? (
+          <ToastAction altText="Otevrit" onClick={() => router.push(`/ideas/${data.idea.id}`)}>
+            Otevrit
+          </ToastAction>
+        ) : undefined,
+      })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
       onOpenChange(false)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { notesApi, type Note } from "@/lib/api"
 import { detectContentType, contentTypeLabels, contentTypeFilterOptions } from "@/lib/content-type"
@@ -34,6 +34,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   StickyNote,
   RefreshCw,
@@ -47,11 +48,14 @@ import {
   Search,
   ChevronsLeft,
   ChevronsRight,
+  LayoutGrid,
+  List,
 } from "lucide-react"
 import Link from "next/link"
 import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateNoteDialog } from "@/components/notes/create-note-dialog"
+import { NoteCardCompact } from "@/components/notes/note-card-compact"
 
 const statusOptions = [
   { value: "all", label: "Vsechny" },
@@ -113,7 +117,20 @@ export default function NotesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
+  const [viewMode, setViewMode] = useState<"detailed" | "compact">("detailed")
   const debouncedSearch = useDebounce(search, 300)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("notes-view-mode")
+    if (saved === "detailed" || saved === "compact") setViewMode(saved)
+  }, [])
+
+  function handleViewModeChange(value: string) {
+    if (value === "detailed" || value === "compact") {
+      setViewMode(value)
+      localStorage.setItem("notes-view-mode", value)
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["notes", { search: debouncedSearch, status, page, limit }],
@@ -152,7 +169,7 @@ export default function NotesPage() {
   const reprocessMutation = useMutation({
     mutationFn: (id: string) => notesApi.reprocess(id),
     onSuccess: () => {
-      toast({ title: "Poznamka pridana do fronty na zpracovani" })
+      toast({ title: "Zarazeno ke zpracovani!", description: "AI na tom pracuje.", variant: "success" })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
     },
     onError: (error: Error) => {
@@ -214,6 +231,14 @@ export default function NotesPage() {
             ))}
           </SelectContent>
         </Select>
+        <ToggleGroup type="single" value={viewMode} onValueChange={handleViewModeChange} className="shrink-0">
+          <ToggleGroupItem value="detailed" aria-label="Detailni zobrazeni" className="h-9 w-9 p-0">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="compact" aria-label="Kompaktni zobrazeni" className="h-9 w-9 p-0">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Zobrazit:</span>
           <Select value={limit.toString()} onValueChange={handleLimitChange}>
@@ -248,19 +273,35 @@ export default function NotesPage() {
           ))}
         </div>
       ) : filteredNotes.length > 0 ? (
-        <div className="space-y-4">
-          {filteredNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onReprocess={() => reprocessMutation.mutate(note.id)}
-              isReprocessing={
-                reprocessMutation.isPending &&
-                reprocessMutation.variables === note.id
-              }
-            />
-          ))}
-        </div>
+        viewMode === "compact" ? (
+          <div className="space-y-1">
+            {filteredNotes.map((note) => (
+              <NoteCardCompact
+                key={note.id}
+                note={note}
+                onReprocess={() => reprocessMutation.mutate(note.id)}
+                isReprocessing={
+                  reprocessMutation.isPending &&
+                  reprocessMutation.variables === note.id
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredNotes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onReprocess={() => reprocessMutation.mutate(note.id)}
+                isReprocessing={
+                  reprocessMutation.isPending &&
+                  reprocessMutation.variables === note.id
+                }
+              />
+            ))}
+          </div>
+        )
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">

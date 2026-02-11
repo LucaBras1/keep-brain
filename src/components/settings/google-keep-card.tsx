@@ -135,8 +135,9 @@ export function GoogleKeepCard() {
     mutationFn: () => keepApi.connect({ email: keepEmail, oauthToken: keepOauthToken }),
     onSuccess: () => {
       toast({
-        title: "Google Keep pripojen",
+        title: "Google Keep pripojen!",
         description: "Token se vymeni na pozadi. Pockejte na dokonceni.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
       setKeepEmail("")
@@ -155,8 +156,9 @@ export function GoogleKeepCard() {
     mutationFn: () => keepApi.connectWithToken({ email: keepEmail, masterToken: keepMasterToken }),
     onSuccess: () => {
       toast({
-        title: "Google Keep pripojen",
+        title: "Google Keep pripojen!",
         description: "Master token se overuje na pozadi. Pockejte na dokonceni.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
       setKeepEmail("")
@@ -177,6 +179,7 @@ export function GoogleKeepCard() {
       toast({
         title: "Google Keep odpojen",
         description: "Ucet byl uspesne odpojen.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
     },
@@ -193,8 +196,9 @@ export function GoogleKeepCard() {
     mutationFn: () => keepApi.sync(),
     onSuccess: () => {
       toast({
-        title: "Synchronizace spustena",
+        title: "Synchronizace spustena!",
         description: "Poznamky se synchronizuji na pozadi.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
     },

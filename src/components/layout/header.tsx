@@ -32,8 +32,9 @@ export function Header({ onMenuClick }: HeaderProps) {
     mutationFn: () => keepApi.sync(),
     onSuccess: () => {
       toast({
-        title: "Stahuji nove poznamky z Keep...",
-        description: "Synchronizace bezi na pozadi.",
+        title: "Synchronizace spustena!",
+        description: "Poznamky se stahuji na pozadi.",
+        variant: "success",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
     },
