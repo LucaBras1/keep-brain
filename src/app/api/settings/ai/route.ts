@@ -4,7 +4,7 @@ import { db } from "@/lib/db"
 import { z } from "zod"
 import { getZodErrorMessage } from "@/lib/validations"
 import { CLAUDE_MODELS, OPENAI_MODELS } from "@/lib/ai/client"
-import { DEFAULT_PROCESSING_PROMPT } from "@/lib/ai/pipeline"
+import { DEFAULT_SYSTEM_PROMPT } from "@/lib/ai/pipeline"
 
 const updateAiSettingsSchema = z.object({
   provider: z.enum(["CLAUDE", "OPENAI"]).optional(),
@@ -30,7 +30,7 @@ export async function GET() {
       temperature: user.aiTemperature,
       autoProcessNotes: user.autoProcessNotes,
       customPrompt: user.customPrompt,
-      defaultPrompt: DEFAULT_PROCESSING_PROMPT,
+      defaultPrompt: DEFAULT_SYSTEM_PROMPT,
       aiEnabled: user.aiEnabled,
       hasClaudeKey: !!user.anthropicApiKey,
       hasOpenaiKey: !!user.openaiApiKey,

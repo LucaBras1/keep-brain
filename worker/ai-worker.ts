@@ -71,31 +71,74 @@ const TYPE_MAP: Record<string, string> = {
 // Tool schema for structured output
 const NOTE_ANALYSIS_TOOL = {
   name: "analyze_note",
-  description: "Analyzuj poznamku a extrahuj napad, nebo oznac jako preskocit.",
+  description: "Analyzuj poznamku a extrahuj nejhodnotnejsi napad, nebo oznac jako preskocit.",
   parameters: {
     type: "object" as const,
     properties: {
-      skip: { type: "boolean", description: "true pokud poznamka neobsahuje napad" },
-      title: { type: "string", description: "Nazev napadu (max 100 znaku)" },
-      description: { type: "string", description: "Popis napadu (2-5 vet)" },
-      category: { type: "string", enum: ["business", "ai", "finance", "thought"] },
-      potential: { type: "string", enum: ["high", "medium", "low"] },
-      type: { type: "string", enum: ["platform", "product", "service", "tool", "concept", "insight", "wisdom", "tip"] },
-      tags: { type: "array", items: { type: "string" }, description: "2-5 tagu" },
-      next_steps: { type: "array", items: { type: "string" }, description: "2-3 dalsi kroky" },
+      skip: { type: "boolean", description: "true pokud poznamka neobsahuje zadny napad k extrakci" },
+      title: { type: "string", description: "Strucny cesky nazev napadu (max 60 znaku)" },
+      description: { type: "string", description: "Cesky popis napadu preformulovany do srozumitelne formy (2-4 vety)" },
+      category: { type: "string", enum: ["business", "ai", "finance", "thought"], description: "Kategorie napadu" },
+      potential: { type: "string", enum: ["high", "medium", "low"], description: "Potencial napadu" },
+      type: { type: "string", enum: ["platform", "product", "service", "tool", "concept", "insight", "wisdom", "tip"], description: "Typ napadu" },
+      tags: { type: "array", items: { type: "string" }, description: "2-5 ceskych tagu (klicova slova)" },
+      next_steps: { type: "array", items: { type: "string" }, description: "2-3 konkretni akcni kroky (cesky, prazdne pole u moudrosti)" },
     },
     required: ["skip"],
   },
 }
 
-const SYSTEM_PROMPT = `Jsi expert na analyzu a kategorizaci napadu. Analyzuj poznamku a rozhodni, zda obsahuje zajimavý napad.
+const SYSTEM_PROMPT = `Jsi analytik napadu. Tvojim ukolem je analyzovat surove poznamky z Google Keep a rozhodnout, zda obsahuji hodnotny napad.
 
-INSTRUKCE:
-1. Precti poznamku a rozhodni, zda obsahuje potencialne uzitecny napad.
-2. Pokud poznamka NEOBSAHUJE napad (nakupni seznam, pripominka...), pouzij nastroj s "skip": true.
-3. Pokud OBSAHUJE napad, analyzuj ho a pouzij nastroj s kompletnimi daty.
+<kontext>
+Poznamky jsou psany chaoticky clovekem s ADHD. Casto jsou zkratkovite, obsahuji preklepy, vice nesouvisejicich myslenek v jedne poznamce, nebo mix jazyku. Tvym ukolem je proniknout skrz chaos a najit jadro napadu.
+</kontext>
 
-VZDY pouzij poskytnuty nastroj pro odpoved.`
+<rozhodovani>
+Nejdrive rozhodni, zda poznamka obsahuje napad hodny extrakce.
+
+PRESKOC (skip: true) pokud poznamka obsahuje pouze:
+- Nakupni seznamy, to-do listy, pripominky
+- Telefonni cisla, hesla, piny, prihlasovaci udaje
+- Jednorazove udalosti bez sirsiho vyznamu
+- Osobni poznamky bez prenositelne hodnoty
+
+EXTRAHUJ pokud poznamka obsahuje:
+- Podnikatelsky napad, navrh produktu ci sluzby
+- Technologicky koncept, AI/automatizacni napad
+- Financni strategii, investicni pristup
+- Zivotni moudrost, uzitecny posteh nebo tip
+</rozhodovani>
+
+<analyza>
+Pokud poznamka obsahuje VICE nesouvisejicich napadu, extrahuj POUZE ten nejhodnotnejsi.
+
+Kategorie:
+- business = podnikani, produkty, sluzby, startupy, marketing
+- ai = umela inteligence, automatizace, agenti, LLM, strojove uceni
+- finance = investice, financni strategie, krypto, sporeni
+- thought = zivotni moudrosti, postrehy, filozofie, osobni rozvoj
+
+Hodnoceni potencialu:
+- high = realizovatelny napad s jasnym dopadem nebo hodnotou
+- medium = zajimava myslenka, vyzaduje rozpracovani
+- low = drobny posteh nebo tip, ale stoji za zaznamenani
+
+Typy:
+- platform/product/service/tool = konkretni realizovatelna vec
+- concept = abstraktni koncept nebo framework
+- insight = posteh nebo analyza situace
+- wisdom = zivotni moudrost nebo princip
+- tip = prakticky tip nebo trik
+</analyza>
+
+<pravidla>
+- Vsechny textove vystupy (title, description, tags, next_steps) pis cesky.
+- Title ma byt strucny a vystizny (max 60 znaku).
+- Description ma vystihnout podstatu napadu (2-4 vety). Preformuluj chaotickou poznamku do srozumitelne formy.
+- Tagy: 2-5 konkretnich klicovych slov.
+- Next steps: 2-3 akcni kroky (u moudrosti/postrehu prazdne pole).
+</pravidla>`
 
 // Database setup
 function createDb(): PrismaClient {
@@ -162,14 +205,15 @@ async function processWithClaude(
   apiKey: string,
   model: string,
   content: string,
-  temperature: number
+  temperature: number,
+  systemPrompt: string = SYSTEM_PROMPT
 ): Promise<ProcessingResult> {
   const client = new Anthropic({ apiKey })
   const message = await client.messages.create({
     model,
     max_tokens: 1024,
     temperature,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [{ role: "user", content: `Poznamka k analyze:\n\n${content}` }],
     tools: [{
       name: NOTE_ANALYSIS_TOOL.name,
@@ -191,7 +235,8 @@ async function processWithOpenAI(
   apiKey: string,
   model: string,
   content: string,
-  temperature: number
+  temperature: number,
+  systemPrompt: string = SYSTEM_PROMPT
 ): Promise<ProcessingResult> {
   const client = new OpenAI({ apiKey })
   const response = await client.chat.completions.create({
@@ -199,7 +244,7 @@ async function processWithOpenAI(
     max_tokens: 1024,
     temperature,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       { role: "user", content: `Poznamka k analyze:\n\n${content}` },
     ],
     tools: [{
@@ -274,21 +319,25 @@ async function main() {
         : note.content
       const content = rawContent.replace(/"""/g, '"\\"\\""')
 
+      // Custom prompt overrides default system prompt
+      const systemPrompt = user.customPrompt || SYSTEM_PROMPT
+
       // Get API key and process
       let result: ProcessingResult
 
       if (user.aiProvider === "OPENAI" && user.openaiApiKey && user.openaiKeyIv) {
         const apiKey = decrypt(user.openaiApiKey, user.openaiKeyIv)
-        result = await processWithOpenAI(apiKey, user.openaiModel, content, user.aiTemperature)
+        result = await processWithOpenAI(apiKey, user.openaiModel, content, user.aiTemperature, systemPrompt)
       } else if (user.anthropicApiKey && user.anthropicKeyIv) {
         const apiKey = decrypt(user.anthropicApiKey, user.anthropicKeyIv)
-        result = await processWithClaude(apiKey, user.claudeModel, content, user.aiTemperature)
+        result = await processWithClaude(apiKey, user.claudeModel, content, user.aiTemperature, systemPrompt)
       } else if (process.env.ANTHROPIC_API_KEY) {
         result = await processWithClaude(
           process.env.ANTHROPIC_API_KEY,
           user.claudeModel,
           content,
-          user.aiTemperature
+          user.aiTemperature,
+          systemPrompt
         )
       } else {
         throw new Error("No AI API key configured")

@@ -4,46 +4,62 @@ import { CATEGORY_MAP, POTENTIAL_MAP, TYPE_MAP } from "@/lib/constants"
 import type { Idea } from "@/generated/prisma"
 
 // System prompt for structured tool-based extraction
-export const DEFAULT_SYSTEM_PROMPT = `Jsi expert na analyzu a kategorizaci napadu. Tvym ukolem je analyzovat surovou poznamku a rozhodnout, zda obsahuje zajimavý napad.
+export const DEFAULT_SYSTEM_PROMPT = `Jsi analytik napadu. Tvojim ukolem je analyzovat surove poznamky z Google Keep a rozhodnout, zda obsahuji hodnotny napad.
 
-INSTRUKCE:
-1. Precti poznamku a rozhodni, zda obsahuje potencialne uzitecny napad (podnikatelsky, technologicky, financni, zivotni moudrost, tip).
-2. Pokud poznamka NEOBSAHUJE zadny napad (je to napr. nakupni seznam, pripominka, osobni poznamka bez hodnoty), pouzij nastroj s "skip": true.
-3. Pokud poznamka OBSAHUJE napad, analyzuj ho a pouzij nastroj s kompletnimi daty.
+<kontext>
+Poznamky jsou psany chaoticky clovekem s ADHD. Casto jsou zkratkovite, obsahuji preklepy, vice nesouvisejicich myslenek v jedne poznamce, nebo mix jazyku. Tvym ukolem je proniknout skrz chaos a najit jadro napadu.
+</kontext>
 
-VZDY pouzij poskytnuty nastroj pro odpoved.`
+<rozhodovani>
+Nejdrive rozhodni, zda poznamka obsahuje napad hodny extrakce.
 
-// Legacy template for custom prompts (backwards compatible)
-export const DEFAULT_PROCESSING_PROMPT = `Jsi expert na analyzu a kategorizaci napadu. Tvym ukolem je analyzovat surovou poznamku z Google Keep a rozhodnout, zda obsahuje zajimavý napad.
+PRESKOC (skip: true) pokud poznamka obsahuje pouze:
+- Nakupni seznamy, to-do listy, pripominky
+- Telefonni cisla, hesla, piny, prihlasovaci udaje
+- Jednorazove udalosti bez sirsiho vyznamu
+- Osobni poznamky bez prenositelne hodnoty
 
-VSTUP:
-Poznamka: """
-{{NOTE_CONTENT}}
-"""
+EXTRAHUJ pokud poznamka obsahuje:
+- Podnikatelsky napad, navrh produktu ci sluzby
+- Technologicky koncept, AI/automatizacni napad
+- Financni strategii, investicni pristup
+- Zivotni moudrost, uzitecny posteh nebo tip
+</rozhodovani>
 
-INSTRUKCE:
-1. Precti poznamku a rozhodni, zda obsahuje potencialne uzitecny napad (podnikatelsky, technologicky, financni, zivotni moudrost, tip).
-2. Pokud poznamka NEOBSAHUJE zadny napad (je to napr. nakupni seznam, pripominka, osobni poznamka bez hodnoty), vrat JSON s "skip": true.
-3. Pokud poznamka OBSAHUJE napad, analyzuj ho a vrat strukturovany JSON.
+<analyza>
+Pokud poznamka obsahuje VICE nesouvisejicich napadu, extrahuj POUZE ten nejhodnotnejsi.
 
-VYSTUP (JSON):
-{
-  "skip": boolean,
-  "title": string,
-  "description": string,
-  "category": string,
-  "potential": string,
-  "type": string,
-  "tags": string[],
-  "next_steps": string[]
-}
+Kategorie:
+- business = podnikani, produkty, sluzby, startupy, marketing
+- ai = umela inteligence, automatizace, agenti, LLM, strojove uceni
+- finance = investice, financni strategie, krypto, sporeni
+- thought = zivotni moudrosti, postrehy, filozofie, osobni rozvoj
 
-Odpovez POUZE validnim JSON objektem, bez dalsiho textu.`
+Hodnoceni potencialu:
+- high = realizovatelny napad s jasnym dopadem nebo hodnotou
+- medium = zajimava myslenka, vyzaduje rozpracovani
+- low = drobny posteh nebo tip, ale stoji za zaznamenani
+
+Typy:
+- platform/product/service/tool = konkretni realizovatelna vec
+- concept = abstraktni koncept nebo framework
+- insight = posteh nebo analyza situace
+- wisdom = zivotni moudrost nebo princip
+- tip = prakticky tip nebo trik
+</analyza>
+
+<pravidla>
+- Vsechny textove vystupy (title, description, tags, next_steps) pis cesky.
+- Title ma byt strucny a vystizny (max 60 znaku).
+- Description ma vystihnout podstatu napadu (2-4 vety). Preformuluj chaotickou poznamku do srozumitelne formy.
+- Tagy: 2-5 konkretnich klicovych slov.
+- Next steps: 2-3 akcni kroky (u moudrosti/postrehu prazdne pole).
+</pravidla>`
 
 // Tool schema for structured AI output (Claude tool_use / OpenAI function_calling)
 export const NOTE_ANALYSIS_TOOL: ToolSchema = {
   name: "analyze_note",
-  description: "Analyzuj poznamku a extrahuj napad, nebo oznac jako preskocit pokud neobsahuje napad.",
+  description: "Analyzuj poznamku a extrahuj nejhodnotnejsi napad, nebo oznac jako preskocit.",
   parameters: {
     type: "object",
     properties: {
@@ -53,11 +69,11 @@ export const NOTE_ANALYSIS_TOOL: ToolSchema = {
       },
       title: {
         type: "string",
-        description: "Strucny nazev napadu (max 100 znaku)",
+        description: "Strucny cesky nazev napadu (max 60 znaku)",
       },
       description: {
         type: "string",
-        description: "Popis napadu (2-5 vet)",
+        description: "Cesky popis napadu preformulovany do srozumitelne formy (2-4 vety)",
       },
       category: {
         type: "string",
@@ -77,12 +93,12 @@ export const NOTE_ANALYSIS_TOOL: ToolSchema = {
       tags: {
         type: "array",
         items: { type: "string" },
-        description: "2-5 relevantnich tagu",
+        description: "2-5 ceskych tagu (klicova slova)",
       },
       next_steps: {
         type: "array",
         items: { type: "string" },
-        description: "2-3 konkretni dalsi kroky",
+        description: "2-3 konkretni akcni kroky (cesky, prazdne pole u moudrosti)",
       },
     },
     required: ["skip"],
@@ -133,35 +149,20 @@ export async function processNote(
       : note.content
     const content = rawContent.replace(/"""/g, '"\\"\\""')
 
-    let result: ProcessingResult
-    let responseText: string
+    // Custom prompt overrides system prompt; note content always comes as user message
+    const systemPrompt = user?.customPrompt || DEFAULT_SYSTEM_PROMPT
+    const toolResult = await aiClient.completeWithTools<ProcessingResult>(
+      systemPrompt,
+      `Poznamka k analyze:\n\n${content}`,
+      NOTE_ANALYSIS_TOOL
+    )
 
-    if (user?.customPrompt) {
-      // Custom prompt: legacy template approach with JSON parsing fallback
-      const prompt = user.customPrompt.replace("{{NOTE_CONTENT}}", content)
-      responseText = await aiClient.complete(prompt)
-
-      // Parse JSON response (legacy path)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response")
-      }
-      result = JSON.parse(jsonMatch[0])
-    } else {
-      // Structured output via tool_use / function_calling
-      const toolResult = await aiClient.completeWithTools<ProcessingResult>(
-        DEFAULT_SYSTEM_PROMPT,
-        `Poznamka k analyze:\n\n${content}`,
-        NOTE_ANALYSIS_TOOL
-      )
-
-      if (!toolResult) {
-        throw new Error("AI did not return structured output")
-      }
-
-      result = toolResult
-      responseText = JSON.stringify(toolResult, null, 2)
+    if (!toolResult) {
+      throw new Error("AI did not return structured output")
     }
+
+    const result: ProcessingResult = toolResult
+    const responseText: string = JSON.stringify(toolResult, null, 2)
 
     // Handle skip case
     if (result.skip) {
