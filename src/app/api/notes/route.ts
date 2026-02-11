@@ -13,14 +13,25 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams
+    const search = searchParams.get("search")
     const status = searchParams.get("status")
     const page = Math.max(parseInt(searchParams.get("page") || "1") || 1, 1)
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20") || 20, 1), 100)
 
-    const where: Record<string, unknown> = { userId: user.id }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { userId: user.id }
 
     if (status) {
       where.processingStatus = status.toUpperCase()
+    }
+
+    if (search && search.trim().length >= 2) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { content: { contains: search, mode: "insensitive" } },
+        { generatedTitle: { contains: search, mode: "insensitive" } },
+        { summary: { contains: search, mode: "insensitive" } },
+      ]
     }
 
     const [notes, total] = await Promise.all([

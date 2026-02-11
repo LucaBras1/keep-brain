@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { notesApi, type Note } from "@/lib/api"
 import { detectContentType, contentTypeLabels, contentTypeFilterOptions } from "@/lib/content-type"
 import { NOTE_CATEGORY_LABELS } from "@/lib/constants"
+import { useDebounce } from "@/hooks/use-debounce"
 import { toast } from "@/hooks/use-toast"
 import {
   Card,
@@ -14,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -42,11 +44,12 @@ import {
   FolderOpen,
   Loader2,
   Plus,
+  Search,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react"
 import Link from "next/link"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateNoteDialog } from "@/components/notes/create-note-dialog"
 
@@ -104,16 +107,19 @@ const limitOptions = [10, 20, 50, 100]
 
 export default function NotesPage() {
   const queryClient = useQueryClient()
+  const [search, setSearch] = useState("")
   const [status, setStatus] = useState("all")
   const [contentTypeFilter, setContentTypeFilter] = useState("all")
   const [createOpen, setCreateOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
+  const debouncedSearch = useDebounce(search, 300)
 
   const { data, isLoading } = useQuery({
-    queryKey: ["notes", { status, page, limit }],
+    queryKey: ["notes", { search: debouncedSearch, status, page, limit }],
     queryFn: () =>
       notesApi.list({
+        search: debouncedSearch || undefined,
         status: status !== "all" ? status : undefined,
         page,
         limit,
@@ -175,6 +181,15 @@ export default function NotesPage() {
 
       {/* Filter */}
       <div className="flex items-center gap-4 flex-wrap">
+        <div className="relative w-full sm:w-auto sm:min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Hledat poznamky..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            className="pl-9"
+          />
+        </div>
         <Select value={status} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Stav" />
@@ -249,16 +264,22 @@ export default function NotesPage() {
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <StickyNote className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Zadne poznamky</h3>
+            <StickyNote className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="font-semibold text-lg mb-2">
+              {search || status !== "all" || contentTypeFilter !== "all"
+                ? "Nic jsme nenasli"
+                : "Kazda velka myslenka zacina jako poznamka"}
+            </h3>
             <p className="text-muted-foreground text-center mb-4">
-              Zatim nemate zadne poznamky.
-              <br />
-              Synchronizujte Google Keep nebo pridejte poznamku rucne.
+              {search || status !== "all" || contentTypeFilter !== "all"
+                ? "Zkuste zmenit filtry nebo jina klicova slova."
+                : "Zachytte tu prvni! Synchronizujte Keep nebo pridejte poznamku rucne."}
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Pridat prvni poznamku
+              {search || status !== "all" || contentTypeFilter !== "all"
+                ? "Pridat poznamku"
+                : "Pridat prvni poznamku"}
             </Button>
           </CardContent>
         </Card>
@@ -439,19 +460,12 @@ function NoteCard({
           </div>
         )}
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {note.keepCreatedAt
-              ? format(new Date(note.keepCreatedAt), "d. MMMM yyyy, HH:mm", {
-                  locale: cs,
-                })
-              : format(new Date(note.createdAt), "d. MMMM yyyy, HH:mm", {
-                  locale: cs,
-                })}
+          <span title={format(new Date(note.keepCreatedAt || note.createdAt), "d. MMMM yyyy, HH:mm", { locale: cs })}>
+            {formatDistanceToNow(new Date(note.keepCreatedAt || note.createdAt), { addSuffix: true, locale: cs })}
           </span>
           {note.processedAt && (
-            <span>
-              Zpracovano:{" "}
-              {format(new Date(note.processedAt), "d. M. yyyy", { locale: cs })}
+            <span title={format(new Date(note.processedAt), "d. MMMM yyyy, HH:mm", { locale: cs })}>
+              Zpracovano {formatDistanceToNow(new Date(note.processedAt), { addSuffix: true, locale: cs })}
             </span>
           )}
         </div>

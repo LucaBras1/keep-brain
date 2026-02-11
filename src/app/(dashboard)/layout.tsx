@@ -1,12 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useRequireAuth } from "@/hooks/use-auth"
 import { useServerEvents } from "@/hooks/use-server-events"
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { MobileSidebar } from "@/components/layout/mobile-sidebar"
+import { CommandPalette } from "@/components/command-palette"
+import { QuickCaptureModal } from "@/components/quick-capture-modal"
+import { ShortcutsHelp } from "@/components/shortcuts-help"
+import { Breadcrumbs } from "@/components/breadcrumbs"
+import { BottomNav } from "@/components/bottom-nav"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useStreak } from "@/hooks/use-streak"
+import type { ServerEvent } from "@/lib/events"
 
 export default function DashboardLayout({
   children,
@@ -15,9 +23,29 @@ export default function DashboardLayout({
 }) {
   const { user, isLoading } = useRequireAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false)
+  const { recordActivity } = useStreak()
 
-  // Connect to SSE for real-time updates (replaces polling)
-  useServerEvents({ enabled: !!user })
+  // Forward SSE events to AI status indicator via CustomEvent
+  const handleSSEEvent = useCallback((event: ServerEvent) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("keepbrain:sse", { detail: event })
+      )
+    }
+  }, [])
+
+  // Connect to SSE for real-time updates
+  useServerEvents({ enabled: !!user, onEvent: handleSSEEvent })
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    onCommandPalette: () => setCommandPaletteOpen(true),
+    onQuickCapture: () => setQuickCaptureOpen(true),
+    onShortcutsHelp: () => setShortcutsHelpOpen(true),
+  })
 
   if (isLoading) {
     return (
@@ -48,9 +76,37 @@ export default function DashboardLayout({
         onClose={() => setMobileMenuOpen(false)}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <Header
+          onMenuClick={() => setMobileMenuOpen(true)}
+          onQuickCapture={() => setQuickCaptureOpen(true)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
+          <Breadcrumbs />
+          {children}
+        </main>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <BottomNav onQuickCapture={() => setQuickCaptureOpen(true)} />
+
+      {/* Global overlays */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onQuickCapture={() => {
+          setCommandPaletteOpen(false)
+          setQuickCaptureOpen(true)
+        }}
+      />
+      <QuickCaptureModal
+        open={quickCaptureOpen}
+        onOpenChange={setQuickCaptureOpen}
+        onSuccess={recordActivity}
+      />
+      <ShortcutsHelp
+        open={shortcutsHelpOpen}
+        onOpenChange={setShortcutsHelpOpen}
+      />
     </div>
   )
 }

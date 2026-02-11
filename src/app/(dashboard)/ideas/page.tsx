@@ -38,12 +38,41 @@ import {
   Plus,
   Lightbulb,
   ArrowUpRight,
+  Sparkles,
+  Play,
+  Eye,
+  CheckCircle2,
+  Archive,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
+
+const statusIcons: Record<string, React.ReactNode> = {
+  NEW: <Sparkles className="h-3 w-3" />,
+  IN_PROGRESS: <Play className="h-3 w-3" />,
+  REVIEW: <Eye className="h-3 w-3" />,
+  IMPLEMENTED: <CheckCircle2 className="h-3 w-3" />,
+  ARCHIVED: <Archive className="h-3 w-3" />,
+}
+
+const statusColors: Record<string, "default" | "warning" | "secondary" | "success" | "outline"> = {
+  NEW: "default",
+  IN_PROGRESS: "warning",
+  REVIEW: "secondary",
+  IMPLEMENTED: "success",
+  ARCHIVED: "outline",
+}
+
+const statusLabelsMap: Record<string, string> = {
+  NEW: "Novy",
+  IN_PROGRESS: "Rozpracovany",
+  REVIEW: "K revizi",
+  IMPLEMENTED: "Implementovany",
+  ARCHIVED: "Archivovany",
+}
 
 const categoryTabs = [
   { value: "all", label: "Vsechny" },
@@ -259,16 +288,20 @@ export default function IdeasPage() {
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Lightbulb className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Zadne napady</h3>
+            <Lightbulb className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="font-semibold text-lg mb-2">
+              {search || category !== "all" || potential !== "all" || status !== "all"
+                ? "Nic jsme nenasli"
+                : "AI uz ceka na vase poznamky"}
+            </h3>
             <p className="text-muted-foreground text-center mb-4">
-              Zatim nemate zadne napady.
-              <br />
-              Synchronizujte Google Keep nebo pridejte napad rucne.
+              {search || category !== "all" || potential !== "all" || status !== "all"
+                ? "Zkuste zmenit filtry nebo jina klicova slova."
+                : "Odtud se rodi napady! Synchronizujte Keep nebo pridejte poznamku."}
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Vytvorit prvni napad
+              Vytvorit napad rucne
             </Button>
           </CardContent>
         </Card>
@@ -302,6 +335,10 @@ function IdeaCard({
                 {potentialLabels[idea.potential]}
               </Badge>
               <Badge variant="secondary">{typeLabels[idea.type]}</Badge>
+              <Badge variant={statusColors[idea.status]} className="gap-1">
+                {statusIcons[idea.status]}
+                {statusLabelsMap[idea.status]}
+              </Badge>
             </CardDescription>
           </div>
           <DropdownMenu>
@@ -351,8 +388,8 @@ function IdeaCard({
           </div>
         )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {format(new Date(idea.createdAt), "d. MMMM yyyy", { locale: cs })}
+          <span title={format(new Date(idea.createdAt), "d. MMMM yyyy", { locale: cs })}>
+            {formatDistanceToNow(new Date(idea.createdAt), { addSuffix: true, locale: cs })}
           </span>
           <Link
             href={`/ideas/${idea.id}`}

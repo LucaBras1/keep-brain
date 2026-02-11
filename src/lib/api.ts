@@ -167,11 +167,13 @@ export interface DashboardStats {
 // Notes API
 export const notesApi = {
   list: (params?: {
+    search?: string
     status?: string
     page?: number
     limit?: number
   }) => {
     const searchParams = new URLSearchParams()
+    if (params?.search) searchParams.set("search", params.search)
     if (params?.status) searchParams.set("status", params.status)
     if (params?.page) searchParams.set("page", params.page.toString())
     if (params?.limit) searchParams.set("limit", params.limit.toString())
@@ -309,8 +311,44 @@ export const keepApi = {
 export const statsApi = {
   dashboard: () => fetchAPI<DashboardStats>("/api/stats/dashboard"),
 
+  focus: () =>
+    fetchAPI<{
+      unreadCount: number
+      highPotentialNew: { id: string; title: string; category: string } | null
+      staleIdea: { id: string; title: string; updatedAt: string } | null
+      todayNotesCount: number
+      todayIdeasCount: number
+    }>("/api/stats/focus"),
+
+  categoryCounts: () =>
+    fetchAPI<{
+      counts: Record<string, number>
+      totalNotes: number
+    }>("/api/stats/category-counts"),
+
   export: () =>
     fetchAPI<{ data: unknown }>("/api/stats/export"),
+}
+
+// Search API
+export const searchApi = {
+  search: (q: string) =>
+    fetchAPI<{
+      notes: Array<{
+        id: string
+        title: string | null
+        generatedTitle: string | null
+        processingStatus: string
+        noteCategory: string | null
+      }>
+      ideas: Array<{
+        id: string
+        title: string
+        category: string
+        potential: string
+        status: string
+      }>
+    }>(`/api/search?q=${encodeURIComponent(q)}`),
 }
 
 // AI Settings Types

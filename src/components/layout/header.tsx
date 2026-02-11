@@ -1,7 +1,7 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { Moon, Sun, Menu, RefreshCw } from "lucide-react"
+import { Moon, Sun, Menu, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,10 +14,12 @@ import { useUser, useLogout } from "@/hooks/use-auth"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { keepApi } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
-import { QuickCapture } from "./quick-capture"
+import { StreakBadge } from "@/components/streak-badge"
+import { AiStatusIndicator } from "@/components/ai-status-indicator"
 
 interface HeaderProps {
   onMenuClick?: () => void
+  onQuickCapture?: () => void
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
@@ -30,8 +32,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     mutationFn: () => keepApi.sync(),
     onSuccess: () => {
       toast({
-        title: "Synchronizace spuštěna",
-        description: "Poznámky z Google Keep se synchronizují na pozadí.",
+        title: "Stahuji nove poznamky z Keep...",
+        description: "Synchronizace bezi na pozadi.",
       })
       queryClient.invalidateQueries({ queryKey: ["user"] })
     },
@@ -52,6 +54,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         .toUpperCase()
     : user?.email?.[0].toUpperCase() || "?"
 
+  const isMac = typeof navigator !== "undefined" && navigator.platform?.includes("Mac")
+
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
       <Button
@@ -65,10 +69,31 @@ export function Header({ onMenuClick }: HeaderProps) {
       </Button>
 
       <div className="flex-1 flex justify-center px-4">
-        <QuickCapture />
+        {/* Command palette trigger - replaces inline quick capture */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 text-muted-foreground w-full max-w-sm justify-start"
+          onClick={() => {
+            // Dispatch keyboard event to open command palette
+            window.dispatchEvent(
+              new KeyboardEvent("keydown", { key: "k", ctrlKey: true })
+            )
+          }}
+        >
+          <Search className="h-4 w-4" />
+          <span className="hidden sm:inline">Hledat poznamky, napady...</span>
+          <span className="sm:hidden">Hledat...</span>
+          <kbd className="pointer-events-none hidden md:inline-flex ml-auto h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            {isMac ? "\u2318" : "Ctrl"}K
+          </kbd>
+        </Button>
       </div>
 
       <div className="flex items-center gap-2">
+        <AiStatusIndicator />
+        <StreakBadge />
+
         {user?.keepEmail && (
           <Button
             variant="outline"
@@ -83,7 +108,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   : ""
               }`}
             />
-            Sync
+            <span className="hidden sm:inline">Sync</span>
           </Button>
         )}
 
@@ -92,18 +117,18 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Button variant="ghost" size="icon">
               <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Přepnout téma</span>
+              <span className="sr-only">Prepnout tema</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setTheme("light")}>
-              Světlý
+              Svetly
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("dark")}>
-              Tmavý
+              Tmavy
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setTheme("system")}>
-              Systémový
+              Systemovy
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -131,7 +156,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               className="text-destructive cursor-pointer"
               onClick={() => logout.mutate()}
             >
-              Odhlásit se
+              Odhlasit se
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

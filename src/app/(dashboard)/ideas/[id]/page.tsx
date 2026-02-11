@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ideasApi, type Idea, type IdeaCreateInput } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
+import { useRecentItems } from "@/hooks/use-recent-items"
 import {
   Card,
   CardContent,
@@ -41,10 +42,23 @@ import {
   Lightbulb,
   ExternalLink,
   Circle,
+  Sparkles,
+  Play,
+  Eye,
+  CheckCircle2,
+  Archive,
 } from "lucide-react"
 import Link from "next/link"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
+
+const statusIcons: Record<string, React.ReactNode> = {
+  NEW: <Sparkles className="h-3.5 w-3.5" />,
+  IN_PROGRESS: <Play className="h-3.5 w-3.5" />,
+  REVIEW: <Eye className="h-3.5 w-3.5" />,
+  IMPLEMENTED: <CheckCircle2 className="h-3.5 w-3.5" />,
+  ARCHIVED: <Archive className="h-3.5 w-3.5" />,
+}
 
 const categoryLabels: Record<string, string> = {
   BUSINESS: "Business",
@@ -139,6 +153,20 @@ export default function IdeaDetailPage() {
   })
 
   const idea = data?.idea
+  const { addItem } = useRecentItems()
+
+  // Track recently viewed
+  useEffect(() => {
+    if (idea) {
+      addItem({
+        id: idea.id,
+        type: "idea",
+        title: idea.title,
+        href: `/ideas/${idea.id}`,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idea?.id])
 
   // Edit form state
   const [editTitle, setEditTitle] = useState("")
@@ -167,7 +195,7 @@ export default function IdeaDetailPage() {
   const updateMutation = useMutation({
     mutationFn: (data: Partial<IdeaCreateInput>) => ideasApi.update(id, data),
     onSuccess: () => {
-      toast({ title: "Napad aktualizovan" })
+      toast({ title: "Zmeny ulozeny. Jdete na to!" })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       setIsEditing(false)
     },
@@ -463,7 +491,8 @@ export default function IdeaDetailPage() {
               {potentialLabels[idea.potential]}
             </Badge>
             <Badge variant="secondary">{typeLabels[idea.type]}</Badge>
-            <Badge variant={statusColors[idea.status]}>
+            <Badge variant={statusColors[idea.status]} className="gap-1">
+              {statusIcons[idea.status]}
               {statusLabels[idea.status]}
             </Badge>
           </div>
@@ -536,9 +565,13 @@ export default function IdeaDetailPage() {
 
           {/* Dates */}
           <div className="text-sm text-muted-foreground">
-            Vytvoreno: {format(new Date(idea.createdAt), "d. MMMM yyyy", { locale: cs })}
+            <span title={format(new Date(idea.createdAt), "d. MMMM yyyy", { locale: cs })}>
+              Vytvoreno {formatDistanceToNow(new Date(idea.createdAt), { addSuffix: true, locale: cs })}
+            </span>
             {" | "}
-            Aktualizovano: {format(new Date(idea.updatedAt), "d. MMMM yyyy", { locale: cs })}
+            <span title={format(new Date(idea.updatedAt), "d. MMMM yyyy", { locale: cs })}>
+              Aktualizovano {formatDistanceToNow(new Date(idea.updatedAt), { addSuffix: true, locale: cs })}
+            </span>
           </div>
         </CardContent>
       </Card>

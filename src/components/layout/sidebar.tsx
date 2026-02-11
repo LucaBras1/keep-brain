@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
   Brain,
@@ -25,39 +26,41 @@ import {
   BookHeart,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useLogout } from "@/hooks/use-auth"
+import { useRecentItems } from "@/hooks/use-recent-items"
 
 const categoryGroups = [
   {
     label: "Media",
     items: [
-      { title: "Social Media", href: "/notes/category/social_media", icon: Share2 },
-      { title: "Video", href: "/notes/category/video", icon: Video },
-      { title: "Odkazy", href: "/notes/category/link", icon: LinkIcon },
+      { title: "Social Media", href: "/notes/category/social_media", icon: Share2, key: "SOCIAL_MEDIA" },
+      { title: "Video", href: "/notes/category/video", icon: Video, key: "VIDEO" },
+      { title: "Odkazy", href: "/notes/category/link", icon: LinkIcon, key: "LINK" },
     ],
   },
   {
     label: "Tvorba",
     items: [
-      { title: "Basne", href: "/notes/category/poetry", icon: PenLine },
-      { title: "Texty pisni", href: "/notes/category/lyrics", icon: Music },
-      { title: "Psani", href: "/notes/category/writing", icon: BookOpen },
+      { title: "Basne", href: "/notes/category/poetry", icon: PenLine, key: "POETRY" },
+      { title: "Texty pisni", href: "/notes/category/lyrics", icon: Music, key: "LYRICS" },
+      { title: "Psani", href: "/notes/category/writing", icon: BookOpen, key: "WRITING" },
     ],
   },
   {
     label: "Organizace",
     items: [
-      { title: "Nakupy", href: "/notes/category/shopping", icon: ShoppingCart },
-      { title: "Ukoly", href: "/notes/category/todo", icon: ListTodo },
-      { title: "Reference", href: "/notes/category/reference", icon: Key },
+      { title: "Nakupy", href: "/notes/category/shopping", icon: ShoppingCart, key: "SHOPPING" },
+      { title: "Ukoly", href: "/notes/category/todo", icon: ListTodo, key: "TODO" },
+      { title: "Reference", href: "/notes/category/reference", icon: Key, key: "REFERENCE" },
     ],
   },
   {
     label: "Osobni",
     items: [
-      { title: "Denik", href: "/notes/category/journal", icon: BookHeart },
+      { title: "Denik", href: "/notes/category/journal", icon: BookHeart, key: "JOURNAL" },
     ],
   },
 ]
@@ -81,6 +84,17 @@ export function Sidebar() {
   const [categoriesOpen, setCategoriesOpen] = useState(
     pathname.startsWith("/notes/category")
   )
+  const { items: recentItems } = useRecentItems()
+
+  const { data: categoryCounts } = useQuery({
+    queryKey: ["category-counts"],
+    queryFn: () =>
+      fetch("/api/stats/category-counts").then((r) => r.json()) as Promise<{
+        counts: Record<string, number>
+        totalNotes: number
+      }>,
+    staleTime: 60000,
+  })
 
   const isNotesActive = pathname === "/notes" || pathname.startsWith("/notes")
 
@@ -128,6 +142,11 @@ export function Sidebar() {
                 >
                   <StickyNote className="h-4 w-4" />
                   Poznamky
+                  {categoryCounts?.totalNotes !== undefined && (
+                    <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-5">
+                      {categoryCounts.totalNotes}
+                    </Badge>
+                  )}
                 </span>
               </Link>
               <button
@@ -151,6 +170,7 @@ export function Sidebar() {
                     </span>
                     {group.items.map((item) => {
                       const isActive = pathname === item.href
+                      const count = categoryCounts?.counts?.[item.key] || 0
                       return (
                         <Link key={item.href} href={item.href}>
                           <span
@@ -158,11 +178,18 @@ export function Sidebar() {
                               "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                               isActive
                                 ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                : count === 0
+                                  ? "text-muted-foreground/50 hover:bg-accent hover:text-accent-foreground"
+                                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                             )}
                           >
                             <item.icon className="h-3.5 w-3.5" />
                             {item.title}
+                            {count > 0 && (
+                              <span className="ml-auto text-[10px] text-muted-foreground">
+                                {count}
+                              </span>
+                            )}
                           </span>
                         </Link>
                       )
@@ -187,6 +214,30 @@ export function Sidebar() {
             </span>
           </Link>
         </nav>
+
+        {/* Recently viewed */}
+        {recentItems.length > 0 && (
+          <div className="mt-6 px-3">
+            <Separator className="mb-3" />
+            <span className="block px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Nedavne
+            </span>
+            <div className="space-y-0.5">
+              {recentItems.map((item) => (
+                <Link key={item.id} href={item.href}>
+                  <span className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                    {item.type === "idea" ? (
+                      <Lightbulb className="h-3 w-3 shrink-0" />
+                    ) : (
+                      <StickyNote className="h-3 w-3 shrink-0" />
+                    )}
+                    <span className="truncate">{item.title}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </ScrollArea>
 
       <Separator />
