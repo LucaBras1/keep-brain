@@ -78,7 +78,7 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
     <div className="space-y-6">
       {/* Hero block */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardContent className="pt-8 pb-8 text-center">
+        <CardContent className="pt-6 pb-6 sm:pt-8 sm:pb-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
             <Sparkles className="h-6 w-6 text-primary" />
             {currentStreak > 0 && (
@@ -88,8 +88,8 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
               </div>
             )}
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">{heroText}</h2>
-          <p className="text-muted-foreground mb-6">{heroSubtext}</p>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">{heroText}</h2>
+          <p className="text-muted-foreground mb-6 text-sm sm:text-base">{heroSubtext}</p>
           {hasUnread ? (
             <Link href="/ideas?status=NEW">
               <Button size="lg">
@@ -98,13 +98,13 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
               </Button>
             </Link>
           ) : (
-            <div className="flex items-center justify-center gap-3">
-              <Button size="lg" onClick={onQuickCapture}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button size="lg" onClick={onQuickCapture} className="w-full sm:w-auto">
                 <PenLine className="mr-2 h-4 w-4" />
                 Zapsat myslenku
               </Button>
-              <Link href="/ideas">
-                <Button size="lg" variant="outline">
+              <Link href="/ideas" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
                   Prohlednou napady
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -122,7 +122,7 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
             <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Lightbulb className="h-4 w-4 text-yellow-500" />
+                  <Lightbulb className="h-4 w-4 text-yellow-500 shrink-0" />
                   Vysoky potencial
                 </CardTitle>
               </CardHeader>
@@ -140,7 +140,7 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
           <Card className="h-full opacity-60">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                <Lightbulb className="h-4 w-4" />
+                <Lightbulb className="h-4 w-4 shrink-0" />
                 Vysoky potencial
               </CardTitle>
             </CardHeader>
@@ -158,7 +158,7 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
             <Card className="h-full hover:border-orange-500/50 transition-colors cursor-pointer">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-orange-500" />
+                  <Clock className="h-4 w-4 text-orange-500 shrink-0" />
                   Chce pozornost
                 </CardTitle>
               </CardHeader>
@@ -180,7 +180,7 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
           <Card className="h-full opacity-60">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-4 w-4 shrink-0" />
                 Chce pozornost
               </CardTitle>
             </CardHeader>

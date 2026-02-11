@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -69,12 +70,12 @@ export function Header({ onMenuClick }: HeaderProps) {
         <span className="sr-only">Menu</span>
       </Button>
 
-      <div className="flex-1 flex justify-center px-4">
+      <div className="flex-1 flex justify-center px-2 sm:px-4">
         {/* Command palette trigger - replaces inline quick capture */}
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 text-muted-foreground w-full max-w-sm justify-start"
+          className="gap-2 text-muted-foreground w-full max-w-[180px] sm:max-w-sm justify-start"
           onClick={() => {
             // Dispatch keyboard event to open command palette
             window.dispatchEvent(
@@ -91,9 +92,13 @@ export function Header({ onMenuClick }: HeaderProps) {
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <AiStatusIndicator />
-        <StreakBadge />
+      <div className="flex items-center gap-1 sm:gap-2">
+        <div className="hidden sm:block">
+          <AiStatusIndicator />
+        </div>
+        <div className="hidden sm:block">
+          <StreakBadge />
+        </div>
 
         {user?.keepEmail && (
           <Button
@@ -113,26 +118,28 @@ export function Header({ onMenuClick }: HeaderProps) {
           </Button>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Prepnout tema</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setTheme("light")}>
-              Svetly
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("dark")}>
-              Tmavy
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("system")}>
-              Systemovy
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="hidden sm:block">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Prepnout tema</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setTheme("light")}>
+                Svetly
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>
+                Tmavy
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>
+                Systemovy
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -153,6 +160,21 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </p>
               </div>
             </div>
+            <div className="sm:hidden">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTheme("light")}>
+                <Sun className="mr-2 h-4 w-4" />
+                Svetly
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>
+                <Moon className="mr-2 h-4 w-4" />
+                Tmavy
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>
+                Systemovy
+              </DropdownMenuItem>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive cursor-pointer"
               onClick={() => logout.mutate()}

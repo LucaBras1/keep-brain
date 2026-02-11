@@ -49,7 +49,7 @@ export function BottomNav({ onQuickCapture }: BottomNavProps) {
         onClick={onQuickCapture}
         className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-xs"
       >
-        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground -mt-5 shadow-lg">
+        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground -mt-4 shadow-md border-2 border-background">
           <Plus className="h-5 w-5" />
         </div>
         <span className="text-muted-foreground">Zapsat</span>

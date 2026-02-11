@@ -33,8 +33,7 @@ import {
   Pin,
 } from "lucide-react"
 import Link from "next/link"
-import { formatDistanceToNow } from "date-fns"
-import { cs } from "date-fns/locale"
+import { formatDateMobile, formatDateDesktop } from "@/lib/date-utils"
 import { FocusDashboard } from "@/components/focus-dashboard"
 import { NotePreviewHover } from "@/components/notes/note-preview-hover"
 import { WeeklyReviewNudge } from "@/components/weekly-review-nudge"
@@ -157,8 +156,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Prehled vasich napadu a poznamek
           </p>
         </div>
@@ -237,7 +236,7 @@ export default function DashboardPage() {
                       className="flex items-start gap-3 hover:bg-muted/50 rounded-md px-3 py-2 -mx-1 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{idea.title}</p>
+                        <p className="font-medium text-sm line-clamp-2 sm:line-clamp-1">{idea.title}</p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                             {categoryLabels[idea.category] || idea.category}
@@ -500,11 +499,11 @@ export default function DashboardPage() {
                 {stats?.recentIdeas && stats.recentIdeas.length > 0 ? (
                   <div className="space-y-4">
                     {stats.recentIdeas.slice(0, 5).map((idea) => (
-                      <div key={idea.id} className="flex items-start gap-3">
-                        <div className="flex-1 space-y-1">
+                      <div key={idea.id} className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3">
+                        <div className="flex-1 space-y-1 min-w-0">
                           <Link
                             href={`/ideas/${idea.id}`}
-                            className="font-medium hover:underline line-clamp-1"
+                            className="font-medium hover:underline line-clamp-2 sm:line-clamp-1"
                           >
                             {idea.title}
                           </Link>
@@ -518,13 +517,13 @@ export default function DashboardPage() {
                             >
                               {potentialLabels[idea.potential] || idea.potential}
                             </Badge>
+                            <span className="text-xs text-muted-foreground sm:hidden">
+                              {formatDateMobile(idea.createdAt)}
+                            </span>
                           </div>
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDistanceToNow(new Date(idea.createdAt), {
-                            addSuffix: true,
-                            locale: cs,
-                          })}
+                        <span className="hidden sm:block text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDateDesktop(idea.createdAt)}
                         </span>
                       </div>
                     ))}
@@ -571,24 +570,44 @@ export default function DashboardPage() {
                     >
                       <Link
                         href={`/notes/${note.id}`}
-                        className="flex items-center gap-3 hover:bg-muted/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+                        className="block hover:bg-muted/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
                       >
-                        <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-sm truncate flex-1">
-                          {note.title || note.generatedTitle || "Bez nazvu"}
-                        </span>
-                        <Badge
-                          variant={noteStatusColors[note.processingStatus]}
-                          className="text-xs shrink-0"
-                        >
-                          {noteStatusIcons[note.processingStatus]}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                          {formatDistanceToNow(new Date(note.createdAt), {
-                            addSuffix: true,
-                            locale: cs,
-                          })}
-                        </span>
+                        {/* Desktop: single row */}
+                        <div className="hidden sm:flex items-center gap-3">
+                          <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-sm truncate flex-1">
+                            {note.title || note.generatedTitle || "Bez nazvu"}
+                          </span>
+                          <Badge
+                            variant={noteStatusColors[note.processingStatus]}
+                            className="text-xs shrink-0"
+                          >
+                            {noteStatusIcons[note.processingStatus]}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                            {formatDateDesktop(note.createdAt)}
+                          </span>
+                        </div>
+                        {/* Mobile: two lines */}
+                        <div className="sm:hidden">
+                          <div className="flex items-center gap-2">
+                            <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="font-medium text-sm line-clamp-1 flex-1">
+                              {note.title || note.generatedTitle || "Bez nazvu"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 ml-6 mt-1">
+                            <Badge
+                              variant={noteStatusColors[note.processingStatus]}
+                              className="text-xs shrink-0"
+                            >
+                              {noteStatusIcons[note.processingStatus]}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDateMobile(note.createdAt)}
+                            </span>
+                          </div>
+                        </div>
                       </Link>
                     </NotePreviewHover>
                   ))}
