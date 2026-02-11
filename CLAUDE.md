@@ -1,0 +1,89 @@
+# Keep Brain - Project Instructions
+
+## Overview
+
+Keep Brain is an AI-powered note processing app that imports notes from Google Keep and transforms them into structured, categorized ideas. Built with Next.js 15 (App Router) + Prisma 7 + Redis/BullMQ + Python worker.
+
+**Live URL:** https://keep.muzx.cz
+
+## Key Commands
+
+```bash
+# Development
+npm run dev              # Next.js dev server
+npm run ai-worker        # AI worker (tsx worker/ai-worker.ts)
+cd worker && python main.py  # Python sync worker
+
+# Build & Test
+npm run build            # Next.js build (needs NODE_OPTIONS="--max-old-space-size=4096")
+npm run lint             # ESLint
+npm run test             # Vitest (npx vitest run)
+npm run test:watch       # Vitest watch mode
+npm run test:coverage    # Vitest with coverage
+
+# Database
+npm run db:generate      # prisma generate
+npm run db:migrate       # prisma migrate dev
+npm run db:migrate:deploy # prisma migrate deploy
+```
+
+## Architecture
+
+3 PM2 processes in production:
+
+| Process | Port/Type | Description |
+|---------|-----------|-------------|
+| `keep-brain` | :3011 | Next.js app (frontend + API) |
+| `keep-brain-worker` | Python | Google Keep sync worker (gkeepapi) |
+| `keep-brain-ai-worker` | Node.js | AI processing worker (BullMQ consumer) |
+
+- **Redis** for BullMQ job queue + pub/sub for SSE (Server-Sent Events)
+- **PostgreSQL** via Prisma 7 with `@prisma/adapter-pg`
+- **SSE** at `/api/events/stream` for real-time updates (sync status, note processing)
+
+## Code Patterns
+
+### Client Components
+- Use React Query (`useQuery` / `useMutation` from `@tanstack/react-query`)
+- API client in `src/lib/api.ts` (typed `fetchAPI<T>()` wrapper)
+- Toast notifications via `@/hooks/use-toast`
+- UI components from `@/components/ui/` (shadcn/ui + Radix)
+
+### API Routes
+- Auth via `getCurrentUser()` - returns user or throws 401
+- Zod validation on all inputs
+- Standard error response: `{ error: string }`
+
+### Language
+- Czech UI text (diacritics OK in user-facing strings)
+- No diacritics in code identifiers, comments can be Czech
+
+## Database
+
+- Prisma 7 with PostgreSQL adapter (`@prisma/adapter-pg`)
+- Schema at `prisma/schema.prisma`
+- Generated client at `src/generated/prisma/` (gitignored - must run `npx prisma generate` after schema changes and on server)
+- **Build-time guard**: Uses Proxy pattern in `src/lib/db.ts` when `DATABASE_URL` is not set. NEVER throw at top level - it breaks `next build`.
+
+## Testing
+
+- **Vitest** - test files in `src/lib/*.test.ts`
+- Run: `npx vitest run`
+- Tests for: encryption, constants, validations
+
+## Deployment
+
+Push to `master` triggers GitHub Actions (`deploy.yml`) which:
+1. SSH to VPS (`/www/hosting/muzx.cz/keep`)
+2. `git pull` + `npm ci` + `prisma generate` + `prisma migrate deploy`
+3. `npm run build` (with `NODE_OPTIONS="--max-old-space-size=4096"`)
+4. `pm2 restart` all 3 processes
+
+## Important Gotchas
+
+- **NEVER** use `output: 'standalone'` in Next.js config - causes static file issues on VPS
+- **Prisma build-time guard** - use Proxy pattern, not throw (see `src/lib/db.ts`)
+- **NODE_OPTIONS** - always set `--max-old-space-size=4096` for builds
+- **Port 3011** in production (not 3010)
+- **`src/generated/prisma/`** is gitignored - must `npx prisma generate` on server after deploy
+- **Encryption** - API keys stored encrypted, requires `ENCRYPTION_KEY` + `ENCRYPTION_SALT` env vars

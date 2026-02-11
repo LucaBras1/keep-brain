@@ -99,11 +99,15 @@ pm2 start ecosystem.config.js
 
 - ✅ Registrace/Login s session-based autentizací
 - ✅ Propojení Google Keep účtu (OAuth Token, Master Token)
-- ✅ Automatická synchronizace poznámek s real-time status polling
+- ✅ Automatická synchronizace poznámek se Server-Sent Events (SSE) pro real-time aktualizace
 - ✅ AI zpracování poznámek (Claude + OpenAI)
 - ✅ Multi-provider AI settings (vlastní API klíče)
 - ✅ Extrakce nápadů s kategorizací
-- ✅ Dashboard se statistikami
+- ✅ Detail poznámky s editací, smazáním a přepracováním
+- ✅ Hromadné přepracování ("Zpracovat vse") pro všechny pending/failed poznámky
+- ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
+- ✅ Detekce typu obsahu (Instagram, YouTube, odkazy) s filtrováním
+- ✅ Záložky kategorií na stránce nápadů s počty a deep links
 - ✅ Filtry a fulltext vyhledávání
 - ✅ Ruční přidání poznámek a nápadů
 - ✅ JSON export dat
@@ -122,7 +126,7 @@ pm2 start ecosystem.config.js
 1. **Připojení účtu**: Uživatel získá OAuth token nebo master token
 2. **Autentizace**: Worker vymění token a ověří přístup ke Google Keep
 3. **Synchronizace**: Worker stáhne poznámky z Google Keep
-4. **Real-time status**: Frontend automaticky polluje status každé 2 sekundy během sync
+4. **Real-time status**: Frontend přijímá aktualizace přes Server-Sent Events (SSE) během sync
 
 ### Metody autentizace
 
@@ -170,11 +174,13 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 /api/keep
 ├── POST   /connect    (oauthToken | masterToken | appPassword)
 ├── DELETE /disconnect
-└── POST   /sync
+├── POST   /sync
+└── GET    /sync/status
 
 /api/notes
 ├── GET    /
 ├── POST   /
+├── POST   /reprocess-all
 ├── GET    /:id
 ├── PATCH  /:id
 ├── DELETE /:id
@@ -190,6 +196,16 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 /api/stats
 ├── GET    /dashboard
 └── GET    /export
+
+/api/settings
+├── GET    /ai
+├── PATCH  /ai
+├── GET    /api-key
+├── POST   /api-key
+└── DELETE /api-key
+
+/api/events
+└── GET    /stream    (SSE)
 ```
 
 ## Deployment
@@ -200,8 +216,8 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 ```apache
 <VirtualHost *:443>
   ServerName keep.muzx.cz
-  ProxyPass / http://127.0.0.1:3010/
-  ProxyPassReverse / http://127.0.0.1:3010/
+  ProxyPass / http://127.0.0.1:3011/
+  ProxyPassReverse / http://127.0.0.1:3011/
   SSLEngine on
   SSLCertificateFile /etc/letsencrypt/live/keep.muzx.cz/fullchain.pem
   SSLCertificateKeyFile /etc/letsencrypt/live/keep.muzx.cz/privkey.pem
@@ -214,14 +230,6 @@ npm run build
 pm2 start ecosystem.config.js
 pm2 save
 ```
-
-### Po aktualizaci z verze bez userId na tazích
-
-```bash
-npx prisma db push
-```
-
-Pozn.: Tag model nyní vyžaduje `userId`. Existující tagy potřebují data migraci pro vyplnění `userId` - přiřaďte je uživateli, který je vytvořil (např. přes poznámky/nápady, na které jsou navázané).
 
 ## Licence
 
