@@ -22,6 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
   StickyNote,
   RefreshCw,
   Clock,
@@ -30,6 +39,8 @@ import {
   SkipForward,
   Loader2,
   Plus,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react"
 import { format } from "date-fns"
 import { cs } from "date-fns/locale"
@@ -80,18 +91,39 @@ const StatusIcon = ({ status }: { status: string }) => {
   }
 }
 
+const limitOptions = [10, 20, 50, 100]
+
 export default function NotesPage() {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState("all")
   const [createOpen, setCreateOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
 
   const { data, isLoading } = useQuery({
-    queryKey: ["notes", { status }],
+    queryKey: ["notes", { status, page, limit }],
     queryFn: () =>
       notesApi.list({
         status: status !== "all" ? status : undefined,
+        page,
+        limit,
       }),
   })
+
+  const total = data?.total || 0
+  const totalPages = Math.ceil(total / limit)
+  const from = total > 0 ? (page - 1) * limit + 1 : 0
+  const to = Math.min(page * limit, total)
+
+  function handleStatusChange(value: string) {
+    setStatus(value)
+    setPage(1)
+  }
+
+  function handleLimitChange(value: string) {
+    setLimit(Number(value))
+    setPage(1)
+  }
 
   const reprocessMutation = useMutation({
     mutationFn: (id: string) => notesApi.reprocess(id),
@@ -124,8 +156,8 @@ export default function NotesPage() {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-4">
-        <Select value={status} onValueChange={setStatus}>
+      <div className="flex items-center gap-4 flex-wrap">
+        <Select value={status} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Stav" />
           </SelectTrigger>
@@ -137,6 +169,22 @@ export default function NotesPage() {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Zobrazit:</span>
+          <Select value={limit.toString()} onValueChange={handleLimitChange}>
+            <SelectTrigger className="w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {limitOptions.map((n) => (
+                <SelectItem key={n} value={n.toString()}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">záznamů</span>
+        </div>
       </div>
 
       {/* Notes List */}
@@ -186,9 +234,85 @@ export default function NotesPage() {
         </Card>
       )}
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground text-center">
+            {from}–{to} z {total} poznámek
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationLink
+                  onClick={() => setPage(1)}
+                  className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  aria-disabled={page <= 1}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </PaginationLink>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  aria-disabled={page <= 1}
+                />
+              </PaginationItem>
+              {getPageNumbers(page, totalPages).map((p, i) =>
+                p === "ellipsis" ? (
+                  <PaginationItem key={`ellipsis-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      isActive={p === page}
+                      onClick={() => setPage(p as number)}
+                      className="cursor-pointer"
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  aria-disabled={page >= totalPages}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink
+                  onClick={() => setPage(totalPages)}
+                  className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  aria-disabled={page >= totalPages}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </PaginationLink>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
       <CreateNoteDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
+}
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const pages: (number | "ellipsis")[] = [1]
+  if (current > 3) pages.push("ellipsis")
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (current < total - 2) pages.push("ellipsis")
+  pages.push(total)
+  return pages
 }
 
 function NoteCard({
