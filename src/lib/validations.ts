@@ -61,6 +61,7 @@ export const ideaSchema = z.object({
     .optional(),
   nextSteps: z.array(z.string()).optional(),
   completedSteps: z.array(z.number()).optional(),
+  isPinned: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   userNotes: z.string().optional(),
 })

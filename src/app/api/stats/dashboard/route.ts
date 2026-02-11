@@ -23,6 +23,7 @@ export async function GET() {
       ideasByStatusRaw,
       recentIdeas,
       recentNotes,
+      pinnedIdeas,
     ] = await Promise.all([
       db.note.count({
         where: { userId: user.id },
@@ -83,10 +84,24 @@ export async function GET() {
           id: true,
           title: true,
           generatedTitle: true,
+          content: true,
+          summary: true,
           noteCategory: true,
           source: true,
           processingStatus: true,
           createdAt: true,
+        },
+      }),
+      db.idea.findMany({
+        where: { userId: user.id, isPinned: true },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        include: {
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
         },
       }),
     ])
@@ -115,6 +130,7 @@ export async function GET() {
       ideasByStatus,
       recentIdeas,
       recentNotes,
+      pinnedIdeas,
     })
   } catch (error) {
     console.error("Dashboard stats error:", error)

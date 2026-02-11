@@ -272,6 +272,7 @@ model Idea {
   // AI generated
   nextSteps      String[]   // Action items
   completedSteps Int[]      @default([]) // Indices of completed steps
+  isPinned       Boolean    @default(false)
 
   // User additions
   userNotes   String?    @db.Text

@@ -28,6 +28,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -53,9 +57,11 @@ import {
   ChevronRight,
   ChevronDown,
   Loader2,
+  Pin,
+  PinOff,
 } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
@@ -153,23 +159,40 @@ const typeLabels: Record<string, string> = {
 export default function IdeasPage() {
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
-  const initialCategory = searchParams.get("category") || "all"
+  const router = useRouter()
+  const pathname = usePathname()
 
-  const [search, setSearch] = useState("")
-  const [category, setCategory] = useState(initialCategory)
-  const [potential, setPotential] = useState("all")
-  const [status, setStatus] = useState("all")
-  const [sort, setSort] = useState("attention")
+  // Read filters from URL search params
+  const category = searchParams.get("category") || "all"
+  const potential = searchParams.get("potential") || "all"
+  const status = searchParams.get("status") || "all"
+  const sort = searchParams.get("sort") || "attention"
+  const urlSearch = searchParams.get("search") || ""
+
+  const [search, setSearch] = useState(urlSearch)
   const [createOpen, setCreateOpen] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
 
-  // Read category from URL on mount and when searchParams change
+  // Helper to update URL params without full page reload
+  const updateFilter = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value === "all" || value === "" || (key === "sort" && value === "attention")) {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
+      const qs = params.toString()
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false })
+    },
+    [searchParams, router, pathname]
+  )
+
+  // Sync debounced search to URL
   useEffect(() => {
-    const urlCategory = searchParams.get("category")
-    if (urlCategory) {
-      setCategory(urlCategory)
-    }
-  }, [searchParams])
+    updateFilter("search", debouncedSearch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch])
 
   const { data, isLoading } = useQuery({
     queryKey: ["ideas", { search: debouncedSearch, category, potential, status, sort }],
@@ -220,7 +243,7 @@ export default function IdeasPage() {
       </div>
 
       {/* Category Tabs */}
-      <Tabs value={category} onValueChange={setCategory}>
+      <Tabs value={category} onValueChange={(v) => updateFilter("category", v)}>
         <TabsList>
           {categoryTabs.map((tab) => {
             const count =
@@ -255,7 +278,7 @@ export default function IdeasPage() {
               />
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Select value={sort} onValueChange={setSort}>
+              <Select value={sort} onValueChange={(v) => updateFilter("sort", v)}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Razeni" />
                 </SelectTrigger>
@@ -267,7 +290,7 @@ export default function IdeasPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={potential} onValueChange={setPotential}>
+              <Select value={potential} onValueChange={(v) => updateFilter("potential", v)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Potencial" />
                 </SelectTrigger>
@@ -279,7 +302,7 @@ export default function IdeasPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Stav" />
                 </SelectTrigger>
@@ -373,6 +396,24 @@ function IdeaCard({
     },
   })
 
+  const statusMutation = useMutation({
+    mutationFn: (newStatus: string) =>
+      ideasApi.update(idea.id, { status: newStatus } as Partial<IdeaCreateInput>),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ideas"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+    },
+  })
+
+  const pinMutation = useMutation({
+    mutationFn: () =>
+      ideasApi.update(idea.id, { isPinned: !idea.isPinned } as Partial<IdeaCreateInput>),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ideas"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+    },
+  })
+
   const toggleStep = useCallback(
     (stepIndex: number) => {
       const next = completedSteps.includes(stepIndex)
@@ -390,6 +431,9 @@ function IdeaCard({
           <div className="space-y-1 flex-1">
             <Link href={`/ideas/${idea.id}`}>
               <CardTitle className="line-clamp-2 hover:underline cursor-pointer flex items-center gap-2">
+                {idea.isPinned && (
+                  <Pin className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                )}
                 {attention && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -430,6 +474,45 @@ function IdeaCard({
                   Upravit
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => pinMutation.mutate()}>
+                {idea.isPinned ? (
+                  <>
+                    <PinOff className="mr-2 h-4 w-4" />
+                    Odepnout
+                  </>
+                ) : (
+                  <>
+                    <Pin className="mr-2 h-4 w-4" />
+                    Pripnout na dashboard
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  {statusIcons[idea.status]}
+                  <span className="ml-2">Zmenit stav</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {statusOptions.filter(o => o.value !== "all" && o.value !== idea.status).map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.value}
+                      onClick={() => statusMutation.mutate(opt.value)}
+                    >
+                      {statusIcons[opt.value]}
+                      <span className="ml-2">{opt.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              {idea.status !== "ARCHIVED" && (
+                <DropdownMenuItem
+                  onClick={() => statusMutation.mutate("ARCHIVED")}
+                >
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archivovat
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={onDelete}

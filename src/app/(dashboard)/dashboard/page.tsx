@@ -30,11 +30,14 @@ import {
   FolderOpen,
   Eye,
   BarChart3,
+  Pin,
 } from "lucide-react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { FocusDashboard } from "@/components/focus-dashboard"
+import { NotePreviewHover } from "@/components/notes/note-preview-hover"
+import { WeeklyReviewNudge } from "@/components/weekly-review-nudge"
 
 const categoryLabels: Record<string, string> = {
   BUSINESS: "Business",
@@ -207,6 +210,53 @@ export default function DashboardPage() {
         <FocusDashboard onQuickCapture={handleQuickCapture} />
       ) : (
         <>
+          {/* Weekly Review Nudge */}
+          <WeeklyReviewNudge />
+
+          {/* Pinned Ideas */}
+          {stats?.pinnedIdeas && stats.pinnedIdeas.length > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Pin className="h-4 w-4 text-blue-500" />
+                  Pripnute napady
+                </CardTitle>
+                <Link href="/ideas">
+                  <Button variant="ghost" size="sm">
+                    Vsechny napady
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {stats.pinnedIdeas.map((idea) => (
+                    <Link
+                      key={idea.id}
+                      href={`/ideas/${idea.id}`}
+                      className="flex items-start gap-3 hover:bg-muted/50 rounded-md px-3 py-2 -mx-1 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{idea.title}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {categoryLabels[idea.category] || idea.category}
+                          </Badge>
+                          <Badge
+                            variant={potentialColors[idea.potential]}
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            {potentialLabels[idea.potential] || idea.potential}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -511,28 +561,36 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-3">
                   {stats.recentNotes.map((note) => (
-                    <Link
+                    <NotePreviewHover
                       key={note.id}
-                      href={`/notes/${note.id}`}
-                      className="flex items-center gap-3 hover:bg-muted/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+                      content={note.content}
+                      status={note.processingStatus}
+                      category={note.noteCategory}
+                      summary={note.summary}
+                      title={note.title || note.generatedTitle}
                     >
-                      <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="font-medium text-sm truncate flex-1">
-                        {note.title || note.generatedTitle || "Bez nazvu"}
-                      </span>
-                      <Badge
-                        variant={noteStatusColors[note.processingStatus]}
-                        className="text-xs shrink-0"
+                      <Link
+                        href={`/notes/${note.id}`}
+                        className="flex items-center gap-3 hover:bg-muted/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
                       >
-                        {noteStatusIcons[note.processingStatus]}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                        {formatDistanceToNow(new Date(note.createdAt), {
-                          addSuffix: true,
-                          locale: cs,
-                        })}
-                      </span>
-                    </Link>
+                        <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium text-sm truncate flex-1">
+                          {note.title || note.generatedTitle || "Bez nazvu"}
+                        </span>
+                        <Badge
+                          variant={noteStatusColors[note.processingStatus]}
+                          className="text-xs shrink-0"
+                        >
+                          {noteStatusIcons[note.processingStatus]}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                          {formatDistanceToNow(new Date(note.createdAt), {
+                            addSuffix: true,
+                            locale: cs,
+                          })}
+                        </span>
+                      </Link>
+                    </NotePreviewHover>
                   ))}
                 </div>
               </CardContent>

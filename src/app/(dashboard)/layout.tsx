@@ -14,6 +14,9 @@ import { Breadcrumbs } from "@/components/breadcrumbs"
 import { BottomNav } from "@/components/bottom-nav"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useStreak } from "@/hooks/use-streak"
+import { toast } from "@/hooks/use-toast"
+import { ToastAction } from "@/components/ui/toast"
+import { SSE_EVENTS } from "@/lib/constants"
 import type { ServerEvent } from "@/lib/events"
 
 export default function DashboardLayout({
@@ -28,12 +31,52 @@ export default function DashboardLayout({
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false)
   const { recordActivity } = useStreak()
 
-  // Forward SSE events to AI status indicator via CustomEvent
+  // Forward SSE events to AI status indicator via CustomEvent + show toasts
   const handleSSEEvent = useCallback((event: ServerEvent) => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("keepbrain:sse", { detail: event })
       )
+    }
+
+    // AI Categorization Visual Feedback
+    if (event.type === SSE_EVENTS.AI_PROCESSING_COMPLETE) {
+      const { ideaId, noteId } = event.data as { ideaId?: string; noteId?: string }
+      if (ideaId) {
+        toast({
+          title: "AI vytvoril novy napad!",
+          description: "Poznamka byla uspesne zpracovana.",
+          variant: "success",
+          action: (
+            <ToastAction altText="Zobrazit napad" asChild>
+              <a href={`/ideas/${ideaId}`}>Zobrazit</a>
+            </ToastAction>
+          ),
+        })
+      } else if (noteId) {
+        toast({
+          title: "AI zpracoval poznamku",
+          description: "Poznamka byla kategorizovana.",
+          variant: "success",
+          action: (
+            <ToastAction altText="Zobrazit poznamku" asChild>
+              <a href={`/notes/${noteId}`}>Zobrazit</a>
+            </ToastAction>
+          ),
+        })
+      }
+    } else if (event.type === SSE_EVENTS.AI_PROCESSING_ERROR) {
+      const { noteId } = event.data as { noteId?: string; error?: string }
+      toast({
+        title: "AI zpracovani selhalo",
+        description: "Zkuste poznamku zpracovat znovu.",
+        variant: "destructive",
+        action: noteId ? (
+          <ToastAction altText="Zobrazit poznamku" asChild>
+            <a href={`/notes/${noteId}`}>Detail</a>
+          </ToastAction>
+        ) : undefined,
+      })
     }
   }, [])
 

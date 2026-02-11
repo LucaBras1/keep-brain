@@ -115,6 +115,7 @@ export interface Idea {
   status: "NEW" | "IN_PROGRESS" | "REVIEW" | "IMPLEMENTED" | "ARCHIVED"
   nextSteps: string[]
   completedSteps: number[]
+  isPinned: boolean
   userNotes: string | null
   createdAt: string
   updatedAt: string
@@ -138,6 +139,7 @@ export interface IdeaCreateInput {
   status?: "NEW" | "IN_PROGRESS" | "REVIEW" | "IMPLEMENTED" | "ARCHIVED"
   nextSteps?: string[]
   completedSteps?: number[]
+  isPinned?: boolean
   tags?: string[]
   userNotes?: string
 }
@@ -155,10 +157,13 @@ export interface DashboardStats {
   ideasByPotential: Record<string, number>
   ideasByStatus: Record<string, number>
   recentIdeas: Idea[]
+  pinnedIdeas: Idea[]
   recentNotes: Array<{
     id: string
     title: string | null
     generatedTitle: string | null
+    content: string
+    summary: string | null
     noteCategory: string | null
     source: string
     processingStatus: string

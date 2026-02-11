@@ -78,13 +78,14 @@ export async function PATCH(
       )
     }
 
-    const { tags, completedSteps, ...data } = result.data
+    const { tags, completedSteps, isPinned, ...data } = result.data
 
     await db.idea.update({
       where: { id },
       data: {
         ...data,
         ...(completedSteps !== undefined ? { completedSteps } : {}),
+        ...(isPinned !== undefined ? { isPinned } : {}),
       },
     })
 
