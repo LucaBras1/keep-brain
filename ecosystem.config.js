@@ -40,7 +40,7 @@ module.exports = {
     },
     {
       name: "keep-brain-ai-worker",
-      script: "node_modules/.bin/tsx",
+      script: "node_modules/tsx/dist/cli.mjs",
       args: "worker/ai-worker.ts",
       cwd: "/www/hosting/muzx.cz/keep",
       instances: 1,

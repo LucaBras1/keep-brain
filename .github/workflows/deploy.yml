@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            cd /var/www/keep-brain
+            cd /www/hosting/muzx.cz/keep
 
             echo "=== Pulling latest changes ==="
             git pull origin master
@@ -30,6 +30,9 @@ jobs:
             echo "=== Generating Prisma client ==="
             npx prisma generate
 
+            echo "=== Running database migrations ==="
+            npx prisma migrate deploy
+
             echo "=== Building Next.js ==="
             export NODE_OPTIONS="--max-old-space-size=4096"
             npm run build
@@ -38,11 +41,16 @@ jobs:
             cd worker
             source venv/bin/activate
             pip install -r requirements.txt --quiet
+            deactivate
             cd ..
+
+            echo "=== Ensuring ENCRYPTION_SALT in .env ==="
+            grep -q ENCRYPTION_SALT .env || echo 'ENCRYPTION_SALT="salt"' >> .env
 
             echo "=== Restarting PM2 processes ==="
             pm2 restart keep-brain --update-env
             pm2 restart keep-brain-worker --update-env
+            pm2 restart keep-brain-ai-worker --update-env
 
             echo "=== Checking status ==="
             pm2 status
