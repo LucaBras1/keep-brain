@@ -141,11 +141,21 @@ export interface DashboardStats {
   totalNotes: number
   processedNotes: number
   pendingNotes: number
+  failedNotes: number
+  skippedNotes: number
+  processingNotes: number
   totalIdeas: number
   ideasByCategory: Record<string, number>
   ideasByPotential: Record<string, number>
   ideasByStatus: Record<string, number>
   recentIdeas: Idea[]
+  recentNotes: Array<{
+    id: string
+    title: string | null
+    source: string
+    processingStatus: string
+    createdAt: string
+  }>
 }
 
 // Notes API
@@ -173,8 +183,24 @@ export const notesApi = {
       body: JSON.stringify(data),
     }),
 
+  update: (id: string, data: { title?: string; content?: string }) =>
+    fetchAPI<{ note: Note }>(`/api/notes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    fetchAPI<{ success: boolean }>(`/api/notes/${id}`, {
+      method: "DELETE",
+    }),
+
   reprocess: (id: string) =>
     fetchAPI<{ note: Note }>(`/api/notes/${id}/reprocess`, {
+      method: "POST",
+    }),
+
+  reprocessAll: () =>
+    fetchAPI<{ enqueued: number }>("/api/notes/reprocess-all", {
       method: "POST",
     }),
 }
@@ -186,6 +212,7 @@ export const ideasApi = {
     potential?: string
     status?: string
     search?: string
+    noteId?: string
     page?: number
     limit?: number
   }) => {
@@ -194,6 +221,7 @@ export const ideasApi = {
     if (params?.potential) searchParams.set("potential", params.potential)
     if (params?.status) searchParams.set("status", params.status)
     if (params?.search) searchParams.set("search", params.search)
+    if (params?.noteId) searchParams.set("noteId", params.noteId)
     if (params?.page) searchParams.set("page", params.page.toString())
     if (params?.limit) searchParams.set("limit", params.limit.toString())
     const query = searchParams.toString()

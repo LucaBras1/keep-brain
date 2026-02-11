@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ideasApi, type Idea } from "@/lib/api"
+import { ideasApi, statsApi, type Idea } from "@/lib/api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { toast } from "@/hooks/use-toast"
 import {
@@ -29,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Search,
   MoreVertical,
@@ -39,45 +40,46 @@ import {
   ArrowUpRight,
 } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
 
-const categoryOptions = [
-  { value: "all", label: "Všechny kategorie" },
+const categoryTabs = [
+  { value: "all", label: "Vsechny" },
   { value: "BUSINESS", label: "Business" },
   { value: "AI", label: "AI" },
   { value: "FINANCE", label: "Finance" },
-  { value: "THOUGHT", label: "Myšlenka" },
+  { value: "THOUGHT", label: "Myslenky" },
 ]
 
 const potentialOptions = [
-  { value: "all", label: "Všechny potenciály" },
-  { value: "HIGH", label: "Vysoký" },
-  { value: "MEDIUM", label: "Střední" },
-  { value: "LOW", label: "Nízký" },
+  { value: "all", label: "Vsechny potencialy" },
+  { value: "HIGH", label: "Vysoky" },
+  { value: "MEDIUM", label: "Stredni" },
+  { value: "LOW", label: "Nizky" },
 ]
 
 const statusOptions = [
-  { value: "all", label: "Všechny stavy" },
-  { value: "NEW", label: "Nový" },
-  { value: "IN_PROGRESS", label: "Rozpracovaný" },
+  { value: "all", label: "Vsechny stavy" },
+  { value: "NEW", label: "Novy" },
+  { value: "IN_PROGRESS", label: "Rozpracovany" },
   { value: "REVIEW", label: "K revizi" },
-  { value: "IMPLEMENTED", label: "Implementovaný" },
-  { value: "ARCHIVED", label: "Archivovaný" },
+  { value: "IMPLEMENTED", label: "Implementovany" },
+  { value: "ARCHIVED", label: "Archivovany" },
 ]
 
 const categoryLabels: Record<string, string> = {
   BUSINESS: "Business",
   AI: "AI",
   FINANCE: "Finance",
-  THOUGHT: "Myšlenka",
+  THOUGHT: "Myslenka",
 }
 
 const potentialLabels: Record<string, string> = {
-  HIGH: "Vysoký",
-  MEDIUM: "Střední",
-  LOW: "Nízký",
+  HIGH: "Vysoky",
+  MEDIUM: "Stredni",
+  LOW: "Nizky",
 }
 
 const potentialColors: Record<string, "success" | "warning" | "secondary"> = {
@@ -89,22 +91,33 @@ const potentialColors: Record<string, "success" | "warning" | "secondary"> = {
 const typeLabels: Record<string, string> = {
   PLATFORM: "Platforma",
   PRODUCT: "Produkt",
-  SERVICE: "Služba",
-  TOOL: "Nástroj",
+  SERVICE: "Sluzba",
+  TOOL: "Nastroj",
   CONCEPT: "Koncept",
-  INSIGHT: "Postřeh",
+  INSIGHT: "Postreh",
   WISDOM: "Moudrost",
   TIP: "Tip",
 }
 
 export default function IdeasPage() {
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
+  const initialCategory = searchParams.get("category") || "all"
+
   const [search, setSearch] = useState("")
-  const [category, setCategory] = useState("all")
+  const [category, setCategory] = useState(initialCategory)
   const [potential, setPotential] = useState("all")
   const [status, setStatus] = useState("all")
   const [createOpen, setCreateOpen] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
+
+  // Read category from URL on mount and when searchParams change
+  useEffect(() => {
+    const urlCategory = searchParams.get("category")
+    if (urlCategory) {
+      setCategory(urlCategory)
+    }
+  }, [searchParams])
 
   const { data, isLoading } = useQuery({
     queryKey: ["ideas", { search: debouncedSearch, category, potential, status }],
@@ -117,15 +130,21 @@ export default function IdeasPage() {
       }),
   })
 
+  const { data: dashboardStats } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: () => statsApi.dashboard(),
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => ideasApi.delete(id),
     onSuccess: () => {
-      toast({ title: "Nápad smazán" })
+      toast({ title: "Napad smazan" })
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
     },
     onError: (error: Error) => {
       toast({
-        title: "Chyba při mazání",
+        title: "Chyba pri mazani",
         description: error.message,
         variant: "destructive",
       })
@@ -136,16 +155,38 @@ export default function IdeasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Nápady</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Napady</h1>
           <p className="text-muted-foreground">
-            {data?.total || 0} nápadů celkem
+            {data?.total || 0} napadu celkem
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Nový nápad
+          Novy napad
         </Button>
       </div>
+
+      {/* Category Tabs */}
+      <Tabs value={category} onValueChange={setCategory}>
+        <TabsList>
+          {categoryTabs.map((tab) => {
+            const count =
+              tab.value === "all"
+                ? dashboardStats?.totalIdeas
+                : dashboardStats?.ideasByCategory?.[tab.value]
+            return (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                {tab.label}
+                {count !== undefined && count > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
+                    {count}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )
+          })}
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <Card>
@@ -154,28 +195,16 @@ export default function IdeasPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Hledat nápady..."
+                placeholder="Hledat napady..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
             <div className="flex gap-2">
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Kategorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Select value={potential} onValueChange={setPotential}>
                 <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Potenciál" />
+                  <SelectValue placeholder="Potencial" />
                 </SelectTrigger>
                 <SelectContent>
                   {potentialOptions.map((opt) => (
@@ -231,15 +260,15 @@ export default function IdeasPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Lightbulb className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Žádné nápady</h3>
+            <h3 className="font-semibold text-lg mb-2">Zadne napady</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Zatím nemáte žádné nápady.
+              Zatim nemate zadne napady.
               <br />
-              Synchronizujte Google Keep nebo přidejte nápad ručně.
+              Synchronizujte Google Keep nebo pridejte napad rucne.
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Vytvořit první nápad
+              Vytvorit prvni napad
             </Button>
           </CardContent>
         </Card>

@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const page = Math.max(parseInt(searchParams.get("page") || "1") || 1, 1)
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20") || 20, 1), 100)
 
+    const noteId = searchParams.get("noteId")
+
     const where: Record<string, unknown> = { userId: user.id }
 
     if (category) {
@@ -28,6 +30,9 @@ export async function GET(request: NextRequest) {
     }
     if (status) {
       where.status = status.toUpperCase()
+    }
+    if (noteId) {
+      where.noteId = noteId
     }
     if (search) {
       where.OR = [

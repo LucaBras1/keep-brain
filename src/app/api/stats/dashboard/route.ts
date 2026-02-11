@@ -13,11 +13,15 @@ export async function GET() {
       totalNotes,
       processedNotes,
       pendingNotes,
+      failedNotes,
+      skippedNotes,
+      processingNotes,
       totalIdeas,
       ideasByCategoryRaw,
       ideasByPotentialRaw,
       ideasByStatusRaw,
       recentIdeas,
+      recentNotes,
     ] = await Promise.all([
       db.note.count({
         where: { userId: user.id },
@@ -27,6 +31,15 @@ export async function GET() {
       }),
       db.note.count({
         where: { userId: user.id, processingStatus: "PENDING" },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "FAILED" },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "SKIPPED" },
+      }),
+      db.note.count({
+        where: { userId: user.id, processingStatus: "PROCESSING" },
       }),
       db.idea.count({
         where: { userId: user.id },
@@ -58,6 +71,18 @@ export async function GET() {
           },
         },
       }),
+      db.note.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          source: true,
+          processingStatus: true,
+          createdAt: true,
+        },
+      }),
     ])
 
     const ideasByCategory = Object.fromEntries(
@@ -74,11 +99,15 @@ export async function GET() {
       totalNotes,
       processedNotes,
       pendingNotes,
+      failedNotes,
+      skippedNotes,
+      processingNotes,
       totalIdeas,
       ideasByCategory,
       ideasByPotential,
       ideasByStatus,
       recentIdeas,
+      recentNotes,
     })
   } catch (error) {
     console.error("Dashboard stats error:", error)

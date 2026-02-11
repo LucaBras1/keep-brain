@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { notesApi, type Note } from "@/lib/api"
+import { detectContentType, contentTypeLabels, contentTypeFilterOptions } from "@/lib/content-type"
 import { toast } from "@/hooks/use-toast"
 import {
   Card,
@@ -42,25 +43,26 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react"
+import Link from "next/link"
 import { format } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateNoteDialog } from "@/components/notes/create-note-dialog"
 
 const statusOptions = [
-  { value: "all", label: "Všechny" },
-  { value: "PENDING", label: "Čeká na zpracování" },
-  { value: "PROCESSING", label: "Zpracovává se" },
-  { value: "COMPLETED", label: "Zpracováno" },
+  { value: "all", label: "Vsechny" },
+  { value: "PENDING", label: "Ceka na zpracovani" },
+  { value: "PROCESSING", label: "Zpracovava se" },
+  { value: "COMPLETED", label: "Zpracovano" },
   { value: "FAILED", label: "Chyba" },
-  { value: "SKIPPED", label: "Přeskočeno" },
+  { value: "SKIPPED", label: "Preskoceno" },
 ]
 
 const statusLabels: Record<string, string> = {
-  PENDING: "Čeká",
-  PROCESSING: "Zpracovává se",
-  COMPLETED: "Zpracováno",
+  PENDING: "Ceka",
+  PROCESSING: "Zpracovava se",
+  COMPLETED: "Zpracovano",
   FAILED: "Chyba",
-  SKIPPED: "Přeskočeno",
+  SKIPPED: "Preskoceno",
 }
 
 const statusColors: Record<
@@ -96,6 +98,7 @@ const limitOptions = [10, 20, 50, 100]
 export default function NotesPage() {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState("all")
+  const [contentTypeFilter, setContentTypeFilter] = useState("all")
   const [createOpen, setCreateOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
@@ -109,6 +112,14 @@ export default function NotesPage() {
         limit,
       }),
   })
+
+  const filteredNotes = useMemo(() => {
+    if (!data?.notes) return []
+    if (contentTypeFilter === "all") return data.notes
+    return data.notes.filter(
+      (note) => detectContentType(note.content) === contentTypeFilter
+    )
+  }, [data?.notes, contentTypeFilter])
 
   const total = data?.total || 0
   const totalPages = Math.ceil(total / limit)
@@ -128,7 +139,7 @@ export default function NotesPage() {
   const reprocessMutation = useMutation({
     mutationFn: (id: string) => notesApi.reprocess(id),
     onSuccess: () => {
-      toast({ title: "Poznámka přidána do fronty na zpracování" })
+      toast({ title: "Poznamka pridana do fronty na zpracovani" })
       queryClient.invalidateQueries({ queryKey: ["notes"] })
     },
     onError: (error: Error) => {
@@ -144,14 +155,14 @@ export default function NotesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Poznámky</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Poznamky</h1>
           <p className="text-muted-foreground">
-            {data?.total || 0} poznámek celkem
+            {data?.total || 0} poznamek celkem
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Přidat poznámku
+          Pridat poznamku
         </Button>
       </div>
 
@@ -163,6 +174,18 @@ export default function NotesPage() {
           </SelectTrigger>
           <SelectContent>
             {statusOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Typ obsahu" />
+          </SelectTrigger>
+          <SelectContent>
+            {contentTypeFilterOptions.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
@@ -183,7 +206,7 @@ export default function NotesPage() {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-sm text-muted-foreground">záznamů</span>
+          <span className="text-sm text-muted-foreground">zaznamu</span>
         </div>
       </div>
 
@@ -202,9 +225,9 @@ export default function NotesPage() {
             </Card>
           ))}
         </div>
-      ) : data?.notes && data.notes.length > 0 ? (
+      ) : filteredNotes.length > 0 ? (
         <div className="space-y-4">
-          {data.notes.map((note) => (
+          {filteredNotes.map((note) => (
             <NoteCard
               key={note.id}
               note={note}
@@ -220,15 +243,15 @@ export default function NotesPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <StickyNote className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Žádné poznámky</h3>
+            <h3 className="font-semibold text-lg mb-2">Zadne poznamky</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Zatím nemáte žádné poznámky.
+              Zatim nemate zadne poznamky.
               <br />
-              Synchronizujte Google Keep nebo přidejte poznámku ručně.
+              Synchronizujte Google Keep nebo pridejte poznamku rucne.
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Přidat první poznámku
+              Pridat prvni poznamku
             </Button>
           </CardContent>
         </Card>
@@ -238,7 +261,7 @@ export default function NotesPage() {
       {totalPages > 1 && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground text-center">
-            {from}–{to} z {total} poznámek
+            {from}--{to} z {total} poznamek
           </p>
           <Pagination>
             <PaginationContent>
@@ -324,14 +347,18 @@ function NoteCard({
   onReprocess: () => void
   isReprocessing: boolean
 }) {
+  const contentType = detectContentType(note.content)
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 flex-1">
-            <CardTitle className="line-clamp-1">
-              {note.title || "Bez názvu"}
-            </CardTitle>
+            <Link href={`/notes/${note.id}`}>
+              <CardTitle className="line-clamp-1 hover:underline cursor-pointer">
+                {note.title || "Bez nazvu"}
+              </CardTitle>
+            </Link>
             <CardDescription className="flex items-center gap-2 flex-wrap">
               <Badge variant={statusColors[note.processingStatus]}>
                 <StatusIcon status={note.processingStatus} />
@@ -343,7 +370,12 @@ function NoteCard({
                 <Badge variant="outline">Google Keep</Badge>
               )}
               {note.source === "manual" && (
-                <Badge variant="outline">Ruční</Badge>
+                <Badge variant="outline">Rucni</Badge>
+              )}
+              {contentType !== "text" && (
+                <Badge variant="secondary">
+                  {contentTypeLabels[contentType]}
+                </Badge>
               )}
               {note.labels.length > 0 && (
                 <>
@@ -381,9 +413,11 @@ function NoteCard({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
-          {note.content}
-        </p>
+        <Link href={`/notes/${note.id}`} className="block">
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+            {note.content}
+          </p>
+        </Link>
         {note.processingError && (
           <div className="mt-3 p-3 bg-destructive/10 text-destructive text-sm rounded-md">
             {note.processingError}
@@ -401,7 +435,7 @@ function NoteCard({
           </span>
           {note.processedAt && (
             <span>
-              Zpracováno:{" "}
+              Zpracovano:{" "}
               {format(new Date(note.processedAt), "d. M. yyyy", { locale: cs })}
             </span>
           )}
