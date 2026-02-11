@@ -49,6 +49,14 @@ npm run db:migrate:deploy # prisma migrate deploy
 - Toast notifications via `@/hooks/use-toast`
 - UI components from `@/components/ui/` (shadcn/ui + Radix)
 
+### Inline Editing Pattern
+- `InlineEdit` and `InlineSelect` components for click-to-edit fields with auto-save (2s debounce)
+- Used on idea detail page - clicking a field turns it into an editable input/textarea/select
+
+### Idea Helpers
+- `src/lib/idea-helpers.ts` has `needsAttention()` and `getAttentionReason()` pure functions
+- Attention logic: HIGH priority + NEW status, or not updated in 14+ days
+
 ### API Routes
 - Auth via `getCurrentUser()` - returns user or throws 401
 - Zod validation on all inputs
@@ -58,12 +66,34 @@ npm run db:migrate:deploy # prisma migrate deploy
 - Czech UI text (diacritics OK in user-facing strings)
 - No diacritics in code identifiers, comments can be Czech
 
+## Key Components
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| `InlineEdit` | `src/components/inline-edit.tsx` | Click-to-edit text/textarea with debounced auto-save |
+| `InlineSelect` | `src/components/inline-select.tsx` | Click-on-badge to change via Select dropdown |
+| `NoteCardCompact` | `src/components/notes/note-card-compact.tsx` | Compact row view for notes list |
+
+## ADHD-UX Features
+
+The app includes ADHD-optimized UX features (Phase 1 + 2A):
+- **Command palette** (Ctrl+K) - global search and navigation
+- **Quick capture** (Ctrl+N) - instant note/idea creation modal
+- **Focus dashboard** - distraction-free view with streaks and stats
+- **Streaks** - daily engagement tracking
+- **Inline editing** - click-to-edit on idea detail page with auto-save
+- **Smart sorting** - "Needs Attention" flag with orange dots on idea cards
+- **Compact view toggle** - switch between detailed/compact note list
+- **Expandable next steps** - checkboxes on idea cards with completed step tracking
+- **Keyboard shortcuts** - global shortcut system
+
 ## Database
 
 - Prisma 7 with PostgreSQL adapter (`@prisma/adapter-pg`)
 - Schema at `prisma/schema.prisma`
 - Generated client at `src/generated/prisma/` (gitignored - must run `npx prisma generate` after schema changes and on server)
 - **Build-time guard**: Uses Proxy pattern in `src/lib/db.ts` when `DATABASE_URL` is not set. NEVER throw at top level - it breaks `next build`.
+- `Idea.completedSteps Int[]` field tracks completed next steps (indices of checked items)
 
 ## Testing
 

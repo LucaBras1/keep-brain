@@ -25,7 +25,7 @@ AI asistent pro automatické zpracování poznámek z Google Keep - převádí c
 
 ## Technologie
 
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Radix UI (Collapsible, Checkbox, Toggle)
 - **Backend**: Next.js API Routes, Prisma 7
 - **Database**: PostgreSQL
 - **Queue**: Redis + BullMQ
@@ -97,6 +97,7 @@ pm2 start ecosystem.config.js
 
 ## Funkce
 
+### Zpracování poznámek
 - ✅ Registrace/Login s session-based autentizací
 - ✅ Propojení Google Keep účtu (OAuth Token, Master Token)
 - ✅ Automatická synchronizace poznámek se Server-Sent Events (SSE) pro real-time aktualizace
@@ -105,19 +106,37 @@ pm2 start ecosystem.config.js
 - ✅ Extrakce nápadů s kategorizací
 - ✅ Detail poznámky s editací, smazáním a přepracováním
 - ✅ Hromadné přepracování ("Zpracovat vse") pro všechny pending/failed poznámky
+- ✅ Ruční přidání poznámek a nápadů
+- ✅ JSON export dat
+
+### ADHD-UX optimalizace
+- ✅ Command palette (Ctrl+K) - globální vyhledávání a navigace
+- ✅ Quick capture (Ctrl+N) - rychlé přidání poznámky/nápadu
+- ✅ Focus dashboard - soustředěný pohled se streak counter a statistikami
+- ✅ Streak counter - sledování denní aktivity
+- ✅ Inline editing na detailu nápadu (click-to-edit s auto-save)
+- ✅ Smart sorting s "Chce pozornost" flagy (oranžové puntíky)
+- ✅ Kompaktní/detailní přepínání pohledu na poznámky
+- ✅ Rozbalovací další kroky s checkboxy na kartách nápadů
+- ✅ Rich toast notifikace s action linky
+- ✅ Keyboard shortcuts systém
+
+### Dashboard a navigace
 - ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
 - ✅ Detekce typu obsahu (Instagram, YouTube, odkazy) s filtrováním
 - ✅ Záložky kategorií na stránce nápadů s počty a deep links
 - ✅ Filtry a fulltext vyhledávání
-- ✅ Ruční přidání poznámek a nápadů
-- ✅ JSON export dat
 - ✅ Dark/Light mode
-- ✅ User-friendly error messages pro sync chyby
+- ✅ Breadcrumbs navigace
+- ✅ Mobilní spodní navigace
+
+### Bezpečnost
 - ✅ Auth middleware s ochranou všech API a stránek
 - ✅ Rate limiting pro login/registraci (10 pokusů / 15 min)
 - ✅ Security headers (X-Frame-Options, HSTS, CSP atd.)
 - ✅ Zod validace na všech API endpointech
 - ✅ Error boundary pro graceful error handling
+- ✅ User-friendly error messages pro sync chyby
 
 ## Google Keep Sync
 
@@ -193,9 +212,17 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 ├── PATCH  /:id
 └── DELETE /:id
 
+/api/search
+└── GET    /           (fulltext search across notes & ideas)
+
 /api/stats
 ├── GET    /dashboard
-└── GET    /export
+├── GET    /export
+├── GET    /focus       (focus mode stats)
+└── GET    /category-counts
+
+/api/notes
+└── GET    /by-category/:category
 
 /api/settings
 ├── GET    /ai

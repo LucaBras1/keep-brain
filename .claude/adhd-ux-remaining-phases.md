@@ -22,62 +22,19 @@
 
 ---
 
-## Phase 2 - Remaining P1 Features (Engagement)
+## Completed (Phase 2A - committed in 669e289)
 
-### P1-02 Inline Editing for Idea Detail
-- **ADHD vyzvy:** 1, 3
-- **Popis:** Kazda sekce na detail strance napadu se edituje inline (klik na nazev -> input, klik na popis -> textarea, klik na badge -> select). Auto-save po 2s debounce.
-- **Implementace:**
-  - `InlineEdit.tsx` komponent (text -> input/textarea on click, blur = save)
-  - `InlineSelect.tsx` (badge -> Select on click)
-  - Update `ideas/[id]/page.tsx` - nahradit edit form za inline editable sekce
-  - Auto-save: `useMutation` + existujici `useDebounce` hook
-- **Effort:** M (3-4 dny)
-- **Soubory:** `src/app/(dashboard)/ideas/[id]/page.tsx`, nove `src/components/inline-edit.tsx`, `src/components/inline-select.tsx`
-
-### P1-04 Smart Sorting & "Needs Attention" Flag
-- **ADHD vyzvy:** 1, 7, 8
-- **Popis:** Novy sort "Chce pozornost" (default): HIGH+NEW prvni, napady neupravene 14+ dni, ostatni. Oranzovy puntik na kartach.
-- **Implementace:**
-  - Update `/api/ideas` - novy `sort=attention` parameter s custom ORDER BY
-  - `NeedsAttentionDot.tsx` (absolutne pozicovany oranzovy puntik)
-  - Default sort v IdeasPage = "attention"
-- **Effort:** S (2 dny)
-- **Soubory:** `src/app/api/ideas/route.ts`, `src/app/(dashboard)/ideas/page.tsx`
-
-### P1-05 Notes Compact View Toggle
-- **ADHD vyzvy:** 4
-- **Popis:** Toggle "Kompaktni / Detailni" view na Notes strance. Kompaktni = tabulkovy radek per poznamka.
-- **Implementace:**
-  - `CompactNoteRow.tsx` komponent
-  - State viewMode v NotesPage s localStorage persistenci
-  - Podmineny render: compact = `<div className="divide-y">`, detail = soucasny
-- **Effort:** S (1-2 dny)
-- **Soubory:** `src/app/(dashboard)/notes/page.tsx`, nove `src/components/notes/compact-note-row.tsx`
-
-### P1-06 Expandable Next Steps on IdeaCard
-- **ADHD vyzvy:** 1, 6
-- **Popis:** Na IdeaCard button "Dalsi kroky" expanduje kartu, ukaze checkboxy. Oznaceni = vizualni odmena.
-- **Implementace:**
-  - Update `IdeaCard` - Radix Collapsible sekce
-  - Nove DB pole `Idea.completedSteps` (Int[] indexy)
-  - PATCH API pro completedSteps
-  - CSS animace check/uncheck
-- **Effort:** M (2-3 dny)
-- **DB migrace:** `Idea.completedSteps Int[]`
-- **Soubory:** `src/app/(dashboard)/ideas/page.tsx`, `prisma/schema.prisma`, `src/app/api/ideas/[id]/route.ts`
-
-### P1-07 Rich Toast Notifications (doplnit)
-- **ADHD vyzvy:** 6
-- **Popis:** Projit vsechny toast() volani v codebase a aktualizovat micro-copy. Pridat action linky kde relevantni.
-- **Effort:** S (1 den)
-- **Soubory:** Cela codebase (cca 15-20 mist s `toast()`)
-
-### P1-02 Inline Editing (already listed above)
+| ID | Feature | Status |
+|----|---------|--------|
+| P1-02 | Inline Editing for Idea Detail | Done |
+| P1-04 | Smart Sorting & "Needs Attention" Flag | Done |
+| P1-05 | Notes Compact View Toggle | Done |
+| P1-06 | Expandable Next Steps on IdeaCard | Done |
+| P1-07 | Rich Toast Notifications | Done |
 
 ---
 
-## Phase 3 - P2 Features (Polish & Nice-to-have)
+## Phase 2B - P2 Quick Wins
 
 ### P2-01 Dark Mode Optimization
 - Redukovat kontrast kde bezpecne, zachovat pro CTA/badges
@@ -145,27 +102,20 @@
 
 ## Doporucene poradi implementace
 
-### Next Session - Phase 2A (P1 features)
-1. P1-07 Rich Toasts (1 den) - rychla vyhradoplnit micro-copy
-2. P1-05 Notes Compact View (1-2 dny)
-3. P1-04 Smart Sorting (2 dny)
-4. P1-02 Inline Editing (3-4 dny)
-5. P1-06 Expandable Next Steps (2-3 dny) - vyzaduje DB migraci
+### Phase 2B (P2 quick wins) - 6 features
+1. P2-10 Persistent Filters (1-2 dny)
+2. P2-08 Quick Actions on Hover (1-2 dny)
+3. P2-07 AI Categorization Toast (1 den)
+4. P2-03 Weekly Review (2 dny)
+5. P2-13 Note Preview (1 den)
+6. P2-14 Pin Ideas (2 dny) - vyzaduje DB migraci
 
-### Phase 2B (P2 quick wins)
-6. P2-10 Persistent Filters (1-2 dny)
-7. P2-08 Quick Actions on Hover (1-2 dny)
-8. P2-07 AI Categorization Toast (1 den)
-9. P2-03 Weekly Review (2 dny)
-10. P2-13 Note Preview (1 den)
-11. P2-14 Pin Ideas (2 dny) - vyzaduje DB migraci
-
-### Phase 2C (P2 larger features)
-12. P2-11 Animated Transitions (1-2 dny)
-13. P2-01 Dark Mode (1-2 dny)
-14. P2-12 Onboarding (2-3 dny)
-15. P2-02 Idea Connections (3-4 dny)
-16. P2-05 Kanban View (4-5 dnu)
+### Phase 2C (P2 larger features) - 5 features
+7. P2-11 Animated Transitions (1-2 dny)
+8. P2-01 Dark Mode (1-2 dny)
+9. P2-12 Onboarding (2-3 dny)
+10. P2-02 Idea Connections (3-4 dny)
+11. P2-05 Kanban View (4-5 dnu)
 
 ---
 
@@ -173,8 +123,8 @@
 ```prisma
 model Idea {
   // existujici pole...
-  isPinned       Boolean  @default(false)    // P2-14
-  completedSteps Int[]    @default([])       // P1-06
+  completedSteps Int[]    @default([])       // P1-06 - DONE
+  isPinned       Boolean  @default(false)    // P2-14 - TODO
 }
 ```
 
