@@ -73,10 +73,12 @@ npm run db:migrate:deploy # prisma migrate deploy
 | `InlineEdit` | `src/components/inline-edit.tsx` | Click-to-edit text/textarea with debounced auto-save |
 | `InlineSelect` | `src/components/inline-select.tsx` | Click-on-badge to change via Select dropdown |
 | `NoteCardCompact` | `src/components/notes/note-card-compact.tsx` | Compact row view for notes list |
+| `NotePreviewHover` | `src/components/notes/note-preview-hover.tsx` | HoverCard with note content preview |
+| `WeeklyReviewNudge` | `src/components/weekly-review-nudge.tsx` | Weekly review prompt card (localStorage timer) |
 
 ## ADHD-UX Features
 
-The app includes ADHD-optimized UX features (Phase 1 + 2A):
+The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B):
 - **Command palette** (Ctrl+K) - global search and navigation
 - **Quick capture** (Ctrl+N) - instant note/idea creation modal
 - **Focus dashboard** - distraction-free view with streaks and stats
@@ -86,6 +88,12 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A):
 - **Compact view toggle** - switch between detailed/compact note list
 - **Expandable next steps** - checkboxes on idea cards with completed step tracking
 - **Keyboard shortcuts** - global shortcut system
+- **Persistent URL filters** - ideas filters saved in URL (shareable links)
+- **Quick actions on hover** - status change, archive, pin from card dropdown
+- **AI categorization toast** - real-time toast with link when AI processes a note
+- **Note preview on hover** - HoverCard showing content preview on dashboard
+- **Weekly review nudge** - periodic review prompt on dashboard
+- **Pin ideas** - pin important ideas to dashboard for quick access
 
 ## Database
 
@@ -94,6 +102,7 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A):
 - Generated client at `src/generated/prisma/` (gitignored - must run `npx prisma generate` after schema changes and on server)
 - **Build-time guard**: Uses Proxy pattern in `src/lib/db.ts` when `DATABASE_URL` is not set. NEVER throw at top level - it breaks `next build`.
 - `Idea.completedSteps Int[]` field tracks completed next steps (indices of checked items)
+- `Idea.isPinned Boolean` field for pinning ideas to dashboard
 
 ## Testing
 

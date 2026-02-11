@@ -120,6 +120,12 @@ pm2 start ecosystem.config.js
 - ✅ Rozbalovací další kroky s checkboxy na kartách nápadů
 - ✅ Rich toast notifikace s action linky
 - ✅ Keyboard shortcuts systém
+- ✅ Persistent URL filtry na strance napadu (sdilitelne odkazy)
+- ✅ Quick actions na kartach napadu (zmena stavu, archivace, pripnuti)
+- ✅ AI kategorization toast s odkazem na vytvoreny napad
+- ✅ Nahled poznamek pri hoveru na dashboardu
+- ✅ Tydenni review nudge na dashboardu
+- ✅ Pripnuti napadu na dashboard
 
 ### Dashboard a navigace
 - ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
