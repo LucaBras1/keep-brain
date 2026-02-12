@@ -62,6 +62,7 @@ import {
   PinOff,
   LayoutGrid,
   Columns3,
+  SlidersHorizontal,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
@@ -176,6 +177,7 @@ export default function IdeasPage() {
   const [search, setSearch] = useState(urlSearch)
   const [createOpen, setCreateOpen] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "kanban">("grid")
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
 
   useEffect(() => {
@@ -246,10 +248,10 @@ export default function IdeasPage() {
   })
 
   return (
-    <div className="space-y-6 animate-page-in">
+    <div className="space-y-3 md:space-y-6 animate-page-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Napady</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Napady</h1>
           <p className="text-muted-foreground">
             {data?.total || 0} napadu celkem
           </p>
@@ -263,7 +265,7 @@ export default function IdeasPage() {
               <Columns3 className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} className="hidden md:flex">
             <Plus className="mr-2 h-4 w-4" />
             Novy napad
           </Button>
@@ -272,30 +274,104 @@ export default function IdeasPage() {
 
       {/* Category Tabs */}
       <Tabs value={category} onValueChange={(v) => updateFilter("category", v)}>
-        <TabsList>
-          {categoryTabs.map((tab) => {
-            const count =
-              tab.value === "all"
-                ? dashboardStats?.totalIdeas
-                : dashboardStats?.ideasByCategory?.[tab.value]
-            return (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-                {count !== undefined && count > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
-                    {count}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            )
-          })}
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <TabsList className="w-max md:w-fit">
+            {categoryTabs.map((tab) => {
+              const count =
+                tab.value === "all"
+                  ? dashboardStats?.totalIdeas
+                  : dashboardStats?.ideasByCategory?.[tab.value]
+              return (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}
+                  {count !== undefined && count > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
+                      {count}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+        <CardContent className="pt-4 md:pt-6">
+          {/* Mobile filters */}
+          <div className="md:hidden space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Hledat napady..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Filtry
+                    {(() => {
+                      const count = [sort !== "attention", potential !== "all", status !== "all"].filter(Boolean).length
+                      return count > 0 ? (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          {count}
+                        </Badge>
+                      ) : null
+                    })()}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", filtersOpen && "rotate-180")} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="flex flex-col gap-2 pt-3">
+                  <Select value={sort} onValueChange={(v) => updateFilter("sort", v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Razeni" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={potential} onValueChange={(v) => updateFilter("potential", v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Potencial" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {potentialOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={status} onValueChange={(v) => updateFilter("status", v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Stav" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+          {/* Desktop filters */}
+          <div className="hidden md:flex flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input

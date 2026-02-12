@@ -1,7 +1,8 @@
 "use client"
 
 import { useTheme } from "next-themes"
-import { Moon, Sun, Menu, RefreshCw, Search } from "lucide-react"
+import { Moon, Sun, Menu, RefreshCw, Search, Settings } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -59,11 +60,11 @@ export function Header({ onMenuClick }: HeaderProps) {
   const isMac = typeof navigator !== "undefined" && navigator.platform?.includes("Mac")
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+    <header className="sticky top-0 z-50 flex h-12 md:h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3 md:px-6">
       <Button
         variant="ghost"
         size="icon"
-        className="md:hidden"
+        className="hidden"
         onClick={onMenuClick}
       >
         <Menu className="h-5 w-5" />
@@ -161,6 +162,13 @@ export function Header({ onMenuClick }: HeaderProps) {
               </div>
             </div>
             <div className="sm:hidden">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Nastaveni
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setTheme("light")}>
                 <Sun className="mr-2 h-4 w-4" />
