@@ -80,6 +80,7 @@ npm run db:migrate:deploy # prisma migrate deploy
 | `KanbanBoard` | `src/components/ideas/kanban-board.tsx` | Drag & drop kanban view for ideas by status |
 | `KanbanColumn` | `src/components/ideas/kanban-column.tsx` | Single kanban column with droppable area |
 | `KanbanCard` | `src/components/ideas/kanban-card.tsx` | Draggable compact idea card for kanban view |
+| `MobileSidebar` | `src/components/layout/mobile-sidebar.tsx` | Mobile slide-out sidebar with expandable note subcategories |
 
 ## ADHD-UX Features
 
@@ -104,6 +105,7 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C - COMPLETE):
 - **Smart onboarding** - 3-step modal for first-time users (localStorage-persisted)
 - **Idea connections** - link related ideas with typed relations (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
 - **Kanban view** - drag & drop ideas between status columns with @dnd-kit
+- **Mobile sidebar subcategories** - expandable note categories (Media, Tvorba, Organizace, Osobni) with counts in mobile sidebar, matching desktop parity
 
 ## Database
 

@@ -131,6 +131,7 @@ pm2 start ecosystem.config.js
 - ✅ Smart onboarding pro nove uzivatele (3-krokovy dialog)
 - ✅ Propojeni napadu (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
 - ✅ Kanban zobrazeni s drag & drop (@dnd-kit)
+- ✅ Mobilni sidebar s rozbalovacimi podkategoriemi poznamek (parita s desktopem)
 
 ### Dashboard a navigace
 - ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
