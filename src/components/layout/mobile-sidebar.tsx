@@ -86,9 +86,7 @@ interface MobileSidebarProps {
 export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
   const pathname = usePathname()
   const logout = useLogout()
-  const [categoriesOpen, setCategoriesOpen] = useState(
-    pathname.startsWith("/notes/category")
-  )
+  const [categoriesOpen, setCategoriesOpen] = useState(true)
 
   const { data: categoryCounts } = useQuery({
     queryKey: ["category-counts"],
@@ -174,9 +172,9 @@ export function MobileSidebar({ open, onClose }: MobileSidebarProps) {
                   className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   {categoriesOpen ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-4 w-4" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-4 w-4" />
                   )}
                 </button>
               </div>

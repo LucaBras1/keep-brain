@@ -81,9 +81,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const logout = useLogout()
-  const [categoriesOpen, setCategoriesOpen] = useState(
-    pathname.startsWith("/notes/category")
-  )
+  const [categoriesOpen, setCategoriesOpen] = useState(true)
   const { items: recentItems } = useRecentItems()
 
   const { data: categoryCounts } = useQuery({
@@ -154,9 +152,9 @@ export function Sidebar() {
                 className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
                 {categoriesOpen ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-4 w-4" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-4 w-4" />
                 )}
               </button>
             </div>
