@@ -42,6 +42,7 @@ import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { InlineEdit } from "@/components/inline-edit"
 import { InlineSelect } from "@/components/inline-select"
+import { RelatedIdeas } from "@/components/ideas/related-ideas"
 import { cn } from "@/lib/utils"
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -271,7 +272,7 @@ export default function IdeaDetailPage() {
   const allDone = totalSteps > 0 && completedCount === totalSteps
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Link href="/ideas">
@@ -419,6 +420,9 @@ export default function IdeaDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Related Ideas */}
+          <RelatedIdeas ideaId={idea.id} />
 
           {/* User Notes */}
           <div>

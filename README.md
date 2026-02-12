@@ -126,6 +126,11 @@ pm2 start ecosystem.config.js
 - ✅ Nahled poznamek pri hoveru na dashboardu
 - ✅ Tydenni review nudge na dashboardu
 - ✅ Pripnuti napadu na dashboard
+- ✅ Animovane prechody mezi strankami (fadeInUp, stagger)
+- ✅ Optimalizovany dark mode (jemnejsi text, viditelne bordery)
+- ✅ Smart onboarding pro nove uzivatele (3-krokovy dialog)
+- ✅ Propojeni napadu (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
+- ✅ Kanban zobrazeni s drag & drop (@dnd-kit)
 
 ### Dashboard a navigace
 - ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
@@ -216,7 +221,10 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 ├── POST   /
 ├── GET    /:id
 ├── PATCH  /:id
-└── DELETE /:id
+├── DELETE /:id
+├── GET    /:id/relations
+├── POST   /:id/relations
+└── DELETE /:id/relations/:relationId
 
 /api/search
 └── GET    /           (fulltext search across notes & ideas)

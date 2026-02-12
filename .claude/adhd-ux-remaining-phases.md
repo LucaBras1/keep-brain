@@ -1,4 +1,4 @@
-# ADHD-UX Redesign - Remaining Phases
+# ADHD-UX Redesign - ALL PHASES COMPLETE
 
 ## Completed (Phase 1 - committed in d87db64)
 
@@ -47,61 +47,24 @@
 
 ---
 
-## Phase 2C - P2 Larger Features (Remaining)
+## Completed (Phase 2C - final features)
 
-### P2-11 Animated Page Transitions
-- Fade-in/slide-up animace pri nacitani stranky
-- Staggered card fade-in
-- `motion-safe:` prefix
-- **Effort:** S (1-2 dny)
-
-### P2-01 Dark Mode Optimization
-- Redukovat kontrast kde bezpecne, zachovat pro CTA/badges
-- Update CSS variables v `globals.css`
-- **Effort:** S (1-2 dny)
-
-### P2-12 Smart Onboarding Flow
-- 3-krokovy onboarding pro nove uzivatele
-- Stepper komponent, progress bar
-- localStorage flag `onboardingDone`
-- **Effort:** M (2-3 dny)
-
-### P2-02 Idea Connections Visualization
-- Sekce "Souvisejici napady" na detail strance
-- API `/api/ideas/[id]/relations` (GET, POST, DELETE)
-- Inline search pro pridavani propojeni
-- **Effort:** M (3-4 dny)
-- **DB:** Vyuzije existujici model `IdeaRelation`
-
-### P2-05 Kanban View (Drag & Drop)
-- Alternativni kanban view pro Ideas (sloupce = statusy)
-- `@dnd-kit/core` + `@dnd-kit/sortable`
-- Toggle mezi list a kanban view
-- **Effort:** L (4-5 dnu)
-- **Nova zavislost:** `@dnd-kit/core`, `@dnd-kit/sortable`
+| ID | Feature | Status |
+|----|---------|--------|
+| P2-11 | Animated Page Transitions | Done |
+| P2-01 | Dark Mode Optimization | Done |
+| P2-12 | Smart Onboarding Flow | Done |
+| P2-02 | Idea Connections Visualization | Done |
+| P2-05 | Kanban View (Drag & Drop) | Done |
 
 ---
 
-## Doporucene poradi implementace
+## Summary
 
-### Phase 2C (P2 larger features) - 5 features remaining
-1. P2-11 Animated Transitions (1-2 dny)
-2. P2-01 Dark Mode (1-2 dny)
-3. P2-12 Onboarding (2-3 dny)
-4. P2-02 Idea Connections (3-4 dny)
-5. P2-05 Kanban View (4-5 dnu)
+**Total features implemented: 31**
+- Phase 1: 15 features
+- Phase 2A: 5 features
+- Phase 2B: 6 features
+- Phase 2C: 5 features
 
----
-
-## DB Migrace
-```prisma
-model Idea {
-  // existujici pole...
-  completedSteps Int[]    @default([])       // P1-06 - DONE
-  isPinned       Boolean  @default(false)    // P2-14 - DONE
-}
-```
-
-## Nove npm zavislosti (budouci faze)
-- `@dnd-kit/core` + `@dnd-kit/sortable` - pro P2-05 Kanban View
-- Vse ostatni realizovatelne s existujicim stackem
+All ADHD-UX redesign features are now complete.

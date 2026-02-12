@@ -10,6 +10,7 @@ import { MobileSidebar } from "@/components/layout/mobile-sidebar"
 import { CommandPalette } from "@/components/command-palette"
 import { QuickCaptureModal } from "@/components/quick-capture-modal"
 import { ShortcutsHelp } from "@/components/shortcuts-help"
+import { OnboardingModal } from "@/components/onboarding-modal"
 import { Breadcrumbs } from "@/components/breadcrumbs"
 import { BottomNav } from "@/components/bottom-nav"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -150,6 +151,7 @@ export default function DashboardLayout({
         open={shortcutsHelpOpen}
         onOpenChange={setShortcutsHelpOpen}
       />
+      <OnboardingModal hasKeepConnected={!!user.keepEmail} />
     </div>
   )
 }

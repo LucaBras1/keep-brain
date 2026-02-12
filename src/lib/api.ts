@@ -278,6 +278,34 @@ export const ideasApi = {
     }),
 }
 
+// Idea Relations types
+export interface IdeaRelationItem {
+  id: string
+  relatedIdea: { id: string; title: string; category: string; potential: string; status: string }
+  type: "RELATED" | "DEPENDS_ON" | "EVOLVED_FROM" | "CONTRADICTS" | "SUPPORTS"
+  strength: number
+  aiSuggested: boolean
+  direction: "outgoing" | "incoming"
+  createdAt: string
+}
+
+// Idea Relations API
+export const ideaRelationsApi = {
+  list: (ideaId: string) =>
+    fetchAPI<{ relations: IdeaRelationItem[] }>(`/api/ideas/${ideaId}/relations`),
+
+  create: (ideaId: string, data: { toIdeaId: string; type: string }) =>
+    fetchAPI<{ relation: IdeaRelationItem }>(`/api/ideas/${ideaId}/relations`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (ideaId: string, relationId: string) =>
+    fetchAPI<{ success: boolean }>(`/api/ideas/${ideaId}/relations/${relationId}`, {
+      method: "DELETE",
+    }),
+}
+
 // Keep API
 export const keepApi = {
   connect: (data: { email: string; oauthToken: string }) =>

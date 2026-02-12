@@ -75,10 +75,15 @@ npm run db:migrate:deploy # prisma migrate deploy
 | `NoteCardCompact` | `src/components/notes/note-card-compact.tsx` | Compact row view for notes list |
 | `NotePreviewHover` | `src/components/notes/note-preview-hover.tsx` | HoverCard with note content preview |
 | `WeeklyReviewNudge` | `src/components/weekly-review-nudge.tsx` | Weekly review prompt card (localStorage timer) |
+| `OnboardingModal` | `src/components/onboarding-modal.tsx` | 3-step onboarding dialog for first-time users |
+| `RelatedIdeas` | `src/components/ideas/related-ideas.tsx` | Idea connections/relations panel on idea detail |
+| `KanbanBoard` | `src/components/ideas/kanban-board.tsx` | Drag & drop kanban view for ideas by status |
+| `KanbanColumn` | `src/components/ideas/kanban-column.tsx` | Single kanban column with droppable area |
+| `KanbanCard` | `src/components/ideas/kanban-card.tsx` | Draggable compact idea card for kanban view |
 
 ## ADHD-UX Features
 
-The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B):
+The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C - COMPLETE):
 - **Command palette** (Ctrl+K) - global search and navigation
 - **Quick capture** (Ctrl+N) - instant note/idea creation modal
 - **Focus dashboard** - distraction-free view with streaks and stats
@@ -94,6 +99,11 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B):
 - **Note preview on hover** - HoverCard showing content preview on dashboard
 - **Weekly review nudge** - periodic review prompt on dashboard
 - **Pin ideas** - pin important ideas to dashboard for quick access
+- **Animated page transitions** - fadeInUp/stagger animations with prefers-reduced-motion support
+- **Dark mode optimization** - softer text, lifted cards, visible borders in dark theme
+- **Smart onboarding** - 3-step modal for first-time users (localStorage-persisted)
+- **Idea connections** - link related ideas with typed relations (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
+- **Kanban view** - drag & drop ideas between status columns with @dnd-kit
 
 ## Database
 
@@ -103,6 +113,7 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B):
 - **Build-time guard**: Uses Proxy pattern in `src/lib/db.ts` when `DATABASE_URL` is not set. NEVER throw at top level - it breaks `next build`.
 - `Idea.completedSteps Int[]` field tracks completed next steps (indices of checked items)
 - `Idea.isPinned Boolean` field for pinning ideas to dashboard
+- `IdeaRelation` model for typed connections between ideas (bidirectional)
 
 ## Testing
 

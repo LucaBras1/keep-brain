@@ -182,7 +182,7 @@ export default function NotesPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Poznamky</h1>
@@ -274,7 +274,7 @@ export default function NotesPage() {
         </div>
       ) : filteredNotes.length > 0 ? (
         viewMode === "compact" ? (
-          <div className="space-y-1">
+          <div className="space-y-1 animate-stagger">
             {filteredNotes.map((note) => (
               <NoteCardCompact
                 key={note.id}
@@ -288,7 +288,7 @@ export default function NotesPage() {
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-stagger">
             {filteredNotes.map((note) => (
               <NoteCard
                 key={note.id}

@@ -71,6 +71,14 @@ export const noteSchema = z.object({
   content: z.string().min(1, "Obsah je povinný"),
 })
 
+export const ideaRelationSchema = z.object({
+  toIdeaId: z.string().min(1),
+  type: z.enum(["RELATED", "DEPENDS_ON", "EVOLVED_FROM", "CONTRADICTS", "SUPPORTS"]),
+  strength: z.number().min(0).max(1).optional(),
+})
+
+export type IdeaRelationInput = z.infer<typeof ideaRelationSchema>
+
 export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
 export type KeepConnectInput = z.infer<typeof keepConnectSchema>

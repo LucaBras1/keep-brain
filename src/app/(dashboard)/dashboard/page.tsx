@@ -153,7 +153,7 @@ export default function DashboardPage() {
     (stats?.pendingNotes || 0) + (stats?.failedNotes || 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -257,7 +257,7 @@ export default function DashboardPage() {
           )}
 
           {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-stagger">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Celkem napadu</CardTitle>

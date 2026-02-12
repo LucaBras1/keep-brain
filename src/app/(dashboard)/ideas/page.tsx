@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Collapsible,
@@ -59,12 +60,15 @@ import {
   Loader2,
   Pin,
   PinOff,
+  LayoutGrid,
+  Columns3,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
+import { KanbanBoard } from "@/components/ideas/kanban-board"
 import { needsAttention, getAttentionReason } from "@/lib/idea-helpers"
 import {
   Tooltip,
@@ -171,7 +175,20 @@ export default function IdeasPage() {
 
   const [search, setSearch] = useState(urlSearch)
   const [createOpen, setCreateOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<"grid" | "kanban">("grid")
   const debouncedSearch = useDebounce(search, 300)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("keepbrain_ideas_view")
+    if (saved === "grid" || saved === "kanban") setViewMode(saved)
+  }, [])
+
+  function handleViewModeChange(value: string) {
+    if (value === "grid" || value === "kanban") {
+      setViewMode(value)
+      localStorage.setItem("keepbrain_ideas_view", value)
+    }
+  }
 
   // Helper to update URL params without full page reload
   const updateFilter = useCallback(
@@ -195,7 +212,7 @@ export default function IdeasPage() {
   }, [debouncedSearch])
 
   const { data, isLoading } = useQuery({
-    queryKey: ["ideas", { search: debouncedSearch, category, potential, status, sort }],
+    queryKey: ["ideas", { search: debouncedSearch, category, potential, status, sort, viewMode }],
     queryFn: () =>
       ideasApi.list({
         search: debouncedSearch || undefined,
@@ -203,6 +220,7 @@ export default function IdeasPage() {
         potential: potential !== "all" ? potential : undefined,
         status: status !== "all" ? status : undefined,
         sort,
+        limit: viewMode === "kanban" ? 100 : undefined,
       }),
   })
 
@@ -228,7 +246,7 @@ export default function IdeasPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Napady</h1>
@@ -236,10 +254,20 @@ export default function IdeasPage() {
             {data?.total || 0} napadu celkem
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novy napad
-        </Button>
+        <div className="flex items-center gap-2">
+          <ToggleGroup type="single" value={viewMode} onValueChange={handleViewModeChange} className="shrink-0">
+            <ToggleGroupItem value="grid" aria-label="Mrizkove zobrazeni" className="h-9 w-9 p-0">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="kanban" aria-label="Kanban zobrazeni" className="h-9 w-9 p-0">
+              <Columns3 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novy napad
+          </Button>
+        </div>
       </div>
 
       {/* Category Tabs */}
@@ -335,15 +363,19 @@ export default function IdeasPage() {
           ))}
         </div>
       ) : data?.ideas && data.ideas.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {data.ideas.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              onDelete={() => deleteMutation.mutate(idea.id)}
-            />
-          ))}
-        </div>
+        viewMode === "kanban" ? (
+          <KanbanBoard ideas={data.ideas} />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-stagger">
+            {data.ideas.map((idea) => (
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                onDelete={() => deleteMutation.mutate(idea.id)}
+              />
+            ))}
+          </div>
+        )
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
