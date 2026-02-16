@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Pencil } from "lucide-react"
+import { Loader2, Pencil, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface InlineEditProps {
@@ -27,8 +27,10 @@ export function InlineEdit({
 }: InlineEditProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(value)
+  const [showSaved, setShowSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const prevSavingRef = useRef(isSaving)
 
   useEffect(() => {
     if (!isEditing) setEditValue(value)
@@ -39,6 +41,16 @@ export function InlineEdit({
       inputRef.current?.focus()
     }
   }, [isEditing])
+
+  // Show "Saved" checkmark when isSaving transitions from true to false
+  useEffect(() => {
+    if (prevSavingRef.current && !isSaving) {
+      setShowSaved(true)
+      const timer = setTimeout(() => setShowSaved(false), 1500)
+      return () => clearTimeout(timer)
+    }
+    prevSavingRef.current = isSaving
+  }, [isSaving])
 
   const saveValue = useCallback(
     (val: string) => {
@@ -75,6 +87,12 @@ export function InlineEdit({
     }
   }
 
+  const statusIcon = isSaving ? (
+    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+  ) : showSaved ? (
+    <Check className="h-4 w-4 text-green-500 animate-in fade-in duration-200" />
+  ) : null
+
   if (isEditing) {
     const Component = type === "textarea" ? Textarea : Input
     return (
@@ -91,9 +109,9 @@ export function InlineEdit({
           )}
           rows={type === "textarea" ? 5 : undefined}
         />
-        {isSaving && (
+        {statusIcon && (
           <div className="absolute right-2 top-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            {statusIcon}
           </div>
         )}
       </div>
@@ -112,8 +130,8 @@ export function InlineEdit({
         {value || <span className="text-muted-foreground italic">{placeholder}</span>}
       </span>
       <Pencil className="inline-block ml-2 h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-      {isSaving && (
-        <Loader2 className="inline-block ml-2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+      {statusIcon && (
+        <span className="inline-block ml-2">{statusIcon}</span>
       )}
     </div>
   )

@@ -62,12 +62,22 @@ export async function GET(request: NextRequest) {
         orderBy,
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          tags: {
-            include: {
-              tag: true,
-            },
-          },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          category: true,
+          potential: true,
+          type: true,
+          status: true,
+          nextSteps: true,
+          completedSteps: true,
+          isPinned: true,
+          userNotes: true,
+          noteId: true,
+          createdAt: true,
+          updatedAt: true,
+          tags: { select: { tag: { select: { id: true, name: true } } } },
         },
       }),
       db.idea.count({ where }),
@@ -102,53 +112,33 @@ export async function POST(request: Request) {
 
     const { tags, ...data } = result.data
 
-    const idea = await db.idea.create({
-      data: {
-        userId: user.id,
-        ...data,
-        nextSteps: data.nextSteps || [],
-      },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
+    const ideaWithTags = await db.$transaction(async (tx) => {
+      const idea = await tx.idea.create({
+        data: {
+          userId: user.id,
+          ...data,
+          nextSteps: data.nextSteps || [],
         },
-      },
-    })
+      })
 
-    // Handle tags if provided (scoped per user)
-    if (tags && tags.length > 0) {
-      for (const tagName of tags) {
-        let tag = await db.tag.findFirst({
-          where: { userId: user.id, name: tagName },
-        })
+      if (tags && tags.length > 0) {
+        for (const tagName of tags) {
+          const tag = await tx.tag.upsert({
+            where: { userId_name: { userId: user.id, name: tagName } },
+            update: {},
+            create: { userId: user.id, name: tagName },
+          })
 
-        if (!tag) {
-          tag = await db.tag.create({
-            data: { userId: user.id, name: tagName },
+          await tx.ideaTag.create({
+            data: { ideaId: idea.id, tagId: tag.id },
           })
         }
-
-        await db.ideaTag.create({
-          data: {
-            ideaId: idea.id,
-            tagId: tag.id,
-          },
-        })
       }
-    }
 
-    // Refetch with tags
-    const ideaWithTags = await db.idea.findUnique({
-      where: { id: idea.id },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+      return tx.idea.findUnique({
+        where: { id: idea.id },
+        include: { tags: { include: { tag: true } } },
+      })
     })
 
     return NextResponse.json({ idea: ideaWithTags })

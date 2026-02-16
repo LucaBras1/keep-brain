@@ -2,12 +2,21 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { addKeepSyncJob } from "@/lib/queue"
+import { rateLimitAsync } from "@/lib/rate-limit"
 
 export async function POST() {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: "Nepřihlášen" }, { status: 401 })
+      return NextResponse.json({ error: "Neprihlasen" }, { status: 401 })
+    }
+
+    const limiter = await rateLimitAsync(`sync:${user.id}`, { windowMs: 5 * 60 * 1000, maxRequests: 5 })
+    if (!limiter.success) {
+      return NextResponse.json(
+        { error: "Prilis mnoho synchronizaci. Pockejte chvili." },
+        { status: 429 }
+      )
     }
 
     if (!user.keepEmail || !user.keepMasterToken) {

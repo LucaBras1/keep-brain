@@ -8,20 +8,23 @@ import os
 import sys
 import json
 import time
+import signal
 import logging
 import secrets
+import hashlib
 from datetime import datetime
 from dotenv import load_dotenv
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # Load environment variables - try multiple locations
-# PM2 runs from project root, standalone runs from worker dir
-load_dotenv(dotenv_path='.env.local')  # project root
-load_dotenv(dotenv_path='.env')        # project root
-load_dotenv(dotenv_path='../.env.local')  # from worker dir
-load_dotenv(dotenv_path='../.env')        # from worker dir
+load_dotenv(dotenv_path='.env.local')
+load_dotenv(dotenv_path='.env')
+load_dotenv(dotenv_path='../.env.local')
+load_dotenv(dotenv_path='../.env')
 
 import redis
 import psycopg2
+from psycopg2 import pool as pg_pool
 from psycopg2.extras import RealDictCursor
 import gpsoauth
 import gkeepapi
@@ -29,14 +32,55 @@ import gkeepapi
 from keep_sync import KeepSync
 
 
+# ============================================
+# Encryption helpers (matches Node.js AES-256-GCM)
+# ============================================
+
+def _derive_encryption_key() -> bytes:
+    """Derive 32-byte key from ENCRYPTION_KEY + ENCRYPTION_SALT using scrypt (matches Node.js crypto.scryptSync)."""
+    key = os.getenv('ENCRYPTION_KEY')
+    salt = os.getenv('ENCRYPTION_SALT')
+    if not key or not salt:
+        raise ValueError("ENCRYPTION_KEY and ENCRYPTION_SALT environment variables are required")
+    return hashlib.scrypt(key.encode(), salt=salt.encode(), n=16384, r=8, p=1, dklen=32)
+
+_cached_derived_key = None
+
+def _get_derived_key() -> bytes:
+    global _cached_derived_key
+    if _cached_derived_key is None:
+        _cached_derived_key = _derive_encryption_key()
+    return _cached_derived_key
+
+
+def encrypt_value(plaintext: str) -> tuple:
+    """Encrypt a string using AES-256-GCM. Returns (encrypted_hex, iv_hex) matching Node.js format."""
+    derived_key = _get_derived_key()
+    iv = os.urandom(16)
+    aesgcm = AESGCM(derived_key)
+    # AESGCM.encrypt returns ciphertext + 16-byte auth tag appended
+    ct_with_tag = aesgcm.encrypt(iv, plaintext.encode(), None)
+    return ct_with_tag.hex(), iv.hex()
+
+
+def decrypt_value(encrypted_hex: str, iv_hex: str) -> str:
+    """Decrypt a string encrypted with AES-256-GCM. Matches Node.js encryption.ts format."""
+    derived_key = _get_derived_key()
+    iv = bytes.fromhex(iv_hex)
+    ct_with_tag = bytes.fromhex(encrypted_hex)
+    aesgcm = AESGCM(derived_key)
+    plaintext = aesgcm.decrypt(iv, ct_with_tag, None)
+    return plaintext.decode()
+
+
+# ============================================
+# Error categorization
+# ============================================
+
 def categorize_error(error: Exception) -> str:
-    """
-    Kategorizuje chybu pro lepsí UX.
-    Vrací user-friendly chybovou zprávu.
-    """
+    """Kategorizuje chybu pro lepsi UX."""
     error_str = str(error)
 
-    # Authentication errors
     if 'BadAuthentication' in error_str:
         return "BadAuthentication: Pristupovy token expiroval. Odpojte ucet a znovu pripojte pomoci OAuth Token."
     if 'UNKNOWN_ERR' in error_str:
@@ -47,38 +91,66 @@ def categorize_error(error: Exception) -> str:
         return "Prihlaseni selhalo. Pouzijte metodu OAuth Token pro pripojeni."
     if 'authentication' in error_str.lower():
         return "Chyba overeni. Zkuste odpojit a znovu pripojit ucet pomoci OAuth Token."
-
-    # Network errors
     if 'network' in error_str.lower() or 'connection' in error_str.lower():
         return "Chyba sitoveho pripojeni. Zkuste to pozdeji."
     if 'timeout' in error_str.lower():
         return "Spojeni vyprelo. Zkuste synchronizaci znovu."
-
-    # SSL/TLS errors
     if 'ssl' in error_str.lower() or 'certificate' in error_str.lower():
         return "Chyba SSL/TLS certifikatu. Kontaktujte podporu."
-
-    # Rate limiting
     if 'rate' in error_str.lower() or 'limit' in error_str.lower() or '429' in error_str:
         return "Prilis mnoho pozadavku. Pockejte par minut a zkuste znovu."
-
-    # Return original error if no category matches
     return error_str
 
 
-# Configure logging
+# ============================================
+# Logging
+# ============================================
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('keep-brain-worker')
 
-# Redis connection
+# ============================================
+# Configuration
+# ============================================
+
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 DATABASE_URL = os.getenv('DATABASE_URL')
-
-# Queue names
 KEEP_SYNC_QUEUE = 'keep-sync'
+SYNC_TIMEOUT_SECONDS = 300  # 5 minutes
+
+# ============================================
+# Database connection pool
+# ============================================
+
+_db_pool = None
+
+def get_db_pool():
+    """Get or create database connection pool."""
+    global _db_pool
+    if _db_pool is None or _db_pool.closed:
+        _db_pool = pg_pool.SimpleConnectionPool(
+            minconn=2,
+            maxconn=10,
+            dsn=DATABASE_URL,
+            cursor_factory=RealDictCursor,
+        )
+    return _db_pool
+
+
+def get_db_connection():
+    """Get a connection from the pool."""
+    return get_db_pool().getconn()
+
+
+def return_db_connection(conn):
+    """Return a connection to the pool."""
+    try:
+        get_db_pool().putconn(conn)
+    except Exception:
+        pass
 
 
 def get_redis_connection():
@@ -86,10 +158,20 @@ def get_redis_connection():
     return redis.from_url(REDIS_URL, decode_responses=True)
 
 
-def get_db_connection():
-    """Create PostgreSQL connection."""
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+# ============================================
+# Sync timeout handler
+# ============================================
 
+class SyncTimeoutError(Exception):
+    pass
+
+def _timeout_handler(signum, frame):
+    raise SyncTimeoutError(f"Sync operation timed out after {SYNC_TIMEOUT_SECONDS}s")
+
+
+# ============================================
+# Database helpers
+# ============================================
 
 def update_user_sync_status(user_id: str, status: str, error: str = None):
     """Update user's sync status in the database."""
@@ -113,7 +195,7 @@ def update_user_sync_status(user_id: str, status: str, error: str = None):
                 """, (status, error, user_id))
             conn.commit()
     finally:
-        conn.close()
+        return_db_connection(conn)
 
 
 def generate_android_id() -> str:
@@ -121,20 +203,12 @@ def generate_android_id() -> str:
     return secrets.token_hex(8)
 
 
+# ============================================
+# Authentication methods
+# ============================================
+
 def exchange_oauth_token(email: str, oauth_token: str) -> str:
-    """
-    Exchange OAuth token for master token using gpsoauth.
-
-    Args:
-        email: Google account email
-        oauth_token: OAuth token from browser cookie
-
-    Returns:
-        Master token string
-
-    Raises:
-        ValueError: If token exchange fails
-    """
+    """Exchange OAuth token for master token using gpsoauth."""
     android_id = generate_android_id()
 
     try:
@@ -158,19 +232,7 @@ def exchange_oauth_token(email: str, oauth_token: str) -> str:
 
 
 def master_login_with_password(email: str, app_password: str) -> str:
-    """
-    Login using email + App Password via gkeepapi's built-in login.
-
-    Args:
-        email: Google account email
-        app_password: App Password (16 characters without spaces)
-
-    Returns:
-        Master token string
-
-    Raises:
-        ValueError: If login fails
-    """
+    """Login using email + App Password via gkeepapi's built-in login."""
     try:
         logger.info(f"Performing master login for {email}...")
         keep = gkeepapi.Keep()
@@ -209,6 +271,43 @@ def master_login_with_password(email: str, app_password: str) -> str:
         raise ValueError(f"Prihlaseni selhalo: {str(e)}")
 
 
+def _store_encrypted_token(user_id: str, master_token: str):
+    """Encrypt and store master token in database."""
+    encrypted, iv = encrypt_value(master_token)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE "User"
+                SET "keepMasterToken" = %s,
+                    "keepTokenIv" = %s,
+                    "syncStatus" = 'IDLE',
+                    "syncError" = NULL
+                WHERE id = %s
+            """, (encrypted, iv, user_id))
+            conn.commit()
+    finally:
+        return_db_connection(conn)
+
+
+def _get_decrypted_token(user_data: dict) -> str:
+    """Decrypt master token from user data."""
+    token = user_data.get('keepMasterToken')
+    iv = user_data.get('keepTokenIv')
+    if not token:
+        raise ValueError("User not connected to Google Keep")
+
+    # If IV exists, token is encrypted
+    if iv:
+        return decrypt_value(token, iv)
+    # Legacy: token stored unencrypted - return as-is
+    return token
+
+
+# ============================================
+# Job processing
+# ============================================
+
 def process_sync_job(job_data: dict):
     """Process a sync job from the queue."""
     user_id = job_data.get('userId')
@@ -218,131 +317,59 @@ def process_sync_job(job_data: dict):
 
     try:
         if action == 'exchange-token':
-            # New OAuth token exchange flow
             email = job_data.get('email')
             oauth_token = job_data.get('oauthToken')
-
             if not email or not oauth_token:
                 raise ValueError("Missing email or OAuth token")
 
-            # Exchange OAuth token for master token
             master_token = exchange_oauth_token(email, oauth_token)
-
             if master_token:
-                # Store master token in database
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as cur:
-                        cur.execute("""
-                            UPDATE "User"
-                            SET "keepMasterToken" = %s,
-                                "syncStatus" = 'IDLE',
-                                "syncError" = NULL
-                            WHERE id = %s
-                        """, (master_token, user_id))
-                        conn.commit()
-                finally:
-                    conn.close()
-
+                _store_encrypted_token(user_id, master_token)
                 logger.info(f"Successfully obtained master token for user {user_id}")
             else:
                 raise ValueError("Failed to get master token")
 
         elif action == 'login-token':
-            # Direct master token authentication - user provides a pre-obtained token
             email = job_data.get('email')
             master_token = job_data.get('masterToken')
-
             if not email or not master_token:
                 raise ValueError("Missing email or master token")
 
-            # Validate by doing a Keep.resume() test
             logger.info(f"Validating master token for {email}...")
             keep = gkeepapi.Keep()
             keep.resume(email, master_token)
 
-            # If no exception, token is valid - store it
-            conn = get_db_connection()
-            try:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE "User"
-                        SET "keepMasterToken" = %s,
-                            "syncStatus" = 'IDLE',
-                            "syncError" = NULL
-                        WHERE id = %s
-                    """, (master_token, user_id))
-                    conn.commit()
-            finally:
-                conn.close()
-
+            _store_encrypted_token(user_id, master_token)
             logger.info(f"Successfully validated and stored master token for user {user_id}")
 
         elif action == 'login-password':
-            # App Password based authentication via gpsoauth.perform_master_login
             email = job_data.get('email')
             app_password = job_data.get('appPassword')
-
             if not email or not app_password:
                 raise ValueError("Missing email or App Password for authentication")
 
-            # Authenticate using App Password and get master token
             master_token = master_login_with_password(email, app_password)
-
             if master_token:
-                # Store master token in database
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as cur:
-                        cur.execute("""
-                            UPDATE "User"
-                            SET "keepMasterToken" = %s,
-                                "syncStatus" = 'IDLE',
-                                "syncError" = NULL
-                            WHERE id = %s
-                        """, (master_token, user_id))
-                        conn.commit()
-                finally:
-                    conn.close()
-
+                _store_encrypted_token(user_id, master_token)
                 logger.info(f"Successfully authenticated user {user_id} with App Password")
             else:
                 raise ValueError("Failed to get master token")
 
         elif action == 'authenticate':
-            # Legacy password-based authentication (deprecated, likely won't work)
             email = job_data.get('email')
             password = job_data.get('password')
-
             if not email or not password:
                 raise ValueError("Missing email or password for authentication")
 
-            # Authenticate and get master token
             sync = KeepSync()
             master_token = sync.authenticate(email, password)
-
             if master_token:
-                # Store encrypted master token in database
-                # Note: In production, we'd encrypt this properly
-                conn = get_db_connection()
-                try:
-                    with conn.cursor() as cur:
-                        cur.execute("""
-                            UPDATE "User"
-                            SET "keepMasterToken" = %s,
-                                "syncStatus" = 'IDLE'
-                            WHERE id = %s
-                        """, (master_token, user_id))
-                        conn.commit()
-                finally:
-                    conn.close()
-
+                _store_encrypted_token(user_id, master_token)
                 logger.info(f"Successfully authenticated user {user_id}")
             else:
                 raise ValueError("Failed to get master token")
 
         elif action == 'sync':
-            # Get user's Keep credentials
             conn = get_db_connection()
             try:
                 with conn.cursor() as cur:
@@ -353,17 +380,29 @@ def process_sync_job(job_data: dict):
                     """, (user_id,))
                     user = cur.fetchone()
             finally:
-                conn.close()
+                return_db_connection(conn)
 
             if not user or not user['keepMasterToken']:
                 raise ValueError("User not connected to Google Keep")
 
-            # Sync notes from Google Keep
-            sync = KeepSync()
-            notes = sync.sync_notes(
-                email=user['keepEmail'],
-                master_token=user['keepMasterToken']
-            )
+            decrypted_token = _get_decrypted_token(user)
+
+            # Set sync timeout (Unix only, Windows uses threading fallback)
+            use_alarm = hasattr(signal, 'SIGALRM')
+            if use_alarm:
+                old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+                signal.alarm(SYNC_TIMEOUT_SECONDS)
+
+            try:
+                sync = KeepSync()
+                notes = sync.sync_notes(
+                    email=user['keepEmail'],
+                    master_token=decrypted_token
+                )
+            finally:
+                if use_alarm:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
 
             # Save notes to database
             conn = get_db_connection()
@@ -373,7 +412,6 @@ def process_sync_job(job_data: dict):
                     notes_updated = 0
 
                     for note in notes:
-                        # Check if note already exists
                         cur.execute("""
                             SELECT id FROM "Note"
                             WHERE "userId" = %s AND "keepId" = %s
@@ -381,7 +419,6 @@ def process_sync_job(job_data: dict):
                         existing = cur.fetchone()
 
                         if existing:
-                            # Update existing note
                             cur.execute("""
                                 UPDATE "Note"
                                 SET title = %s,
@@ -407,7 +444,6 @@ def process_sync_job(job_data: dict):
                             ))
                             notes_updated += 1
                         else:
-                            # Create new note
                             cur.execute("""
                                 INSERT INTO "Note" (
                                     id, "userId", "keepId", title, content,
@@ -439,7 +475,6 @@ def process_sync_job(job_data: dict):
 
                     conn.commit()
 
-                    # Log sync results
                     cur.execute("""
                         INSERT INTO "SyncLog" (
                             id, "userId", "startedAt", "completedAt",
@@ -452,17 +487,25 @@ def process_sync_job(job_data: dict):
                     conn.commit()
 
             finally:
-                conn.close()
+                return_db_connection(conn)
 
             update_user_sync_status(user_id, 'SUCCESS')
-            logger.info(f"Sync completed for user {user_id}: {len(notes)} notes found")
+            logger.info(f"Sync completed for user {user_id}: {len(notes)} notes found, {notes_created} created, {notes_updated} updated")
 
+    except SyncTimeoutError as e:
+        logger.error(f"Sync timeout for user {user_id}: {str(e)}")
+        update_user_sync_status(user_id, 'FAILED', "Synchronizace trvala prilis dlouho. Zkuste to znovu.")
+        raise
     except Exception as e:
         categorized_error = categorize_error(e)
         logger.error(f"Sync error for user {user_id}: {categorized_error}")
         update_user_sync_status(user_id, 'FAILED', categorized_error)
         raise
 
+
+# ============================================
+# Main worker loop
+# ============================================
 
 def main():
     """Main worker loop."""
@@ -481,6 +524,12 @@ def main():
         logger.error("DATABASE_URL not set")
         sys.exit(1)
 
+    # Validate encryption env vars
+    enc_key = os.getenv('ENCRYPTION_KEY')
+    enc_salt = os.getenv('ENCRYPTION_SALT')
+    if not enc_key or not enc_salt:
+        logger.warning("ENCRYPTION_KEY/ENCRYPTION_SALT not set - token encryption disabled, using legacy plaintext")
+
     r = get_redis_connection()
     logger.info(f"Connected to Redis: {REDIS_URL}")
 
@@ -488,35 +537,23 @@ def main():
 
     while True:
         try:
-            # BullMQ uses list for waiting jobs
-            # BRPOP blocks until a job is available (timeout in seconds)
             result = r.brpop(f'{queue_prefix}:wait', timeout=5)
 
             if result:
-                # result = (key, job_id)
                 _, job_id = result
-
-                # BullMQ stores job data as hash with 'data' field containing JSON
                 job_key = f'{queue_prefix}:{job_id}'
                 job_data_json = r.hget(job_key, 'data')
 
                 if job_data_json:
                     job_data = json.loads(job_data_json)
-
                     logger.info(f"Processing job {job_id}")
 
                     try:
-                        # Move job to active state
                         r.zadd(f'{queue_prefix}:active', {job_id: time.time()})
-
                         process_sync_job(job_data)
 
-                        # Mark job as completed in BullMQ format
-                        # Update job state in hash
                         r.hset(job_key, 'finishedOn', int(time.time() * 1000))
                         r.hset(job_key, 'processedOn', int(time.time() * 1000))
-
-                        # Move to completed set
                         r.zrem(f'{queue_prefix}:active', job_id)
                         r.zadd(f'{queue_prefix}:completed', {job_id: time.time()})
 
@@ -524,12 +561,8 @@ def main():
 
                     except Exception as e:
                         logger.error(f"Job {job_id} failed: {str(e)}")
-
-                        # Move to failed set
                         r.zrem(f'{queue_prefix}:active', job_id)
                         r.zadd(f'{queue_prefix}:failed', {job_id: time.time()})
-
-                        # Store error in job hash
                         r.hset(job_key, 'failedReason', str(e))
                         r.hset(job_key, 'finishedOn', int(time.time() * 1000))
                 else:
@@ -544,6 +577,11 @@ def main():
         except Exception as e:
             logger.error(f"Worker error: {str(e)}")
             time.sleep(1)
+
+    # Cleanup connection pool
+    global _db_pool
+    if _db_pool and not _db_pool.closed:
+        _db_pool.closeall()
 
 
 if __name__ == '__main__':

@@ -5,6 +5,8 @@ const PUBLIC_PATHS = [
   "/register",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/health",
+  "/api/cron/auto-sync",
 ]
 
 export function middleware(request: NextRequest) {

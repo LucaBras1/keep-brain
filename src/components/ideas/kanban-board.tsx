@@ -59,7 +59,25 @@ export function KanbanBoard({ ideas }: KanbanBoardProps) {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       ideasApi.update(id, { status } as Partial<IdeaCreateInput>),
-    onSuccess: () => {
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["ideas"] })
+      const previous = queryClient.getQueriesData({ queryKey: ["ideas"] })
+      queryClient.setQueriesData({ queryKey: ["ideas"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old
+        const data = old as { ideas?: Idea[] }
+        if (!data.ideas) return old
+        return { ...data, ideas: data.ideas.map((i) => i.id === id ? { ...i, status } : i) }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
     },

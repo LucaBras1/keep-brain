@@ -18,7 +18,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 15m
           script: |
+            set -e
+
             cd /www/hosting/muzx.cz/keep
 
             echo "=== Pulling latest changes ==="
@@ -44,15 +47,24 @@ jobs:
             deactivate
             cd ..
 
-            echo "=== Ensuring ENCRYPTION_SALT in .env ==="
-            grep -q ENCRYPTION_SALT .env || echo 'ENCRYPTION_SALT="salt"' >> .env
-
             echo "=== Restarting PM2 processes ==="
             pm2 restart keep-brain --update-env
             pm2 restart keep-brain-worker --update-env
             pm2 restart keep-brain-ai-worker --update-env
 
-            echo "=== Checking status ==="
+            echo "=== Waiting for startup ==="
+            sleep 5
+
+            echo "=== Health check ==="
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3011/api/health)
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "Health check failed with status $HTTP_STATUS"
+              pm2 status
+              curl -s http://localhost:3011/api/health || true
+              exit 1
+            fi
+
+            echo "=== Checking PM2 status ==="
             pm2 status
 
             echo "=== Deploy completed! ==="

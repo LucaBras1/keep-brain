@@ -14,72 +14,23 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../src/generated/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import OpenAI from "openai"
+import crypto from "crypto"
 
 // Load environment from .env files
 import { config } from "dotenv"
 config({ path: ".env.local" })
 config({ path: ".env" })
 
-// Constants (duplicated from src/lib/constants to avoid Next.js import issues)
-const QUEUE_NAME = "ai-processing"
-const REDIS_CHANNEL_PREFIX = "keepbrain:events"
-
-// Event types
-const EVENTS = {
-  AI_PROCESSING_START: "ai:processing:start",
-  AI_PROCESSING_COMPLETE: "ai:processing:complete",
-  AI_PROCESSING_ERROR: "ai:processing:error",
-  IDEA_CREATED: "idea:created",
-}
-
-// Mapping constants
-const CATEGORY_MAP: Record<string, string> = {
-  business: "BUSINESS",
-  ai: "AI",
-  finance: "FINANCE",
-  thought: "THOUGHT",
-  "myšlenka": "THOUGHT",
-}
-
-const NOTE_CATEGORY_MAP: Record<string, string> = {
-  social_media: "SOCIAL_MEDIA",
-  video: "VIDEO",
-  link: "LINK",
-  poetry: "POETRY",
-  lyrics: "LYRICS",
-  writing: "WRITING",
-  shopping: "SHOPPING",
-  todo: "TODO",
-  reference: "REFERENCE",
-  journal: "JOURNAL",
-}
-
-const POTENTIAL_MAP: Record<string, string> = {
-  "vysoký": "HIGH",
-  "střední": "MEDIUM",
-  "nízký": "LOW",
-  high: "HIGH",
-  medium: "MEDIUM",
-  low: "LOW",
-}
-
-const TYPE_MAP: Record<string, string> = {
-  platforma: "PLATFORM",
-  produkt: "PRODUCT",
-  "služba": "SERVICE",
-  "nástroj": "TOOL",
-  koncept: "CONCEPT",
-  "postřeh": "INSIGHT",
-  moudrost: "WISDOM",
-  tip: "TIP",
-  platform: "PLATFORM",
-  product: "PRODUCT",
-  service: "SERVICE",
-  tool: "TOOL",
-  concept: "CONCEPT",
-  insight: "INSIGHT",
-  wisdom: "WISDOM",
-}
+// Import shared constants (avoid duplication)
+import {
+  QUEUE_NAMES,
+  REDIS_CHANNELS,
+  SSE_EVENTS,
+  CATEGORY_MAP,
+  NOTE_CATEGORY_MAP,
+  POTENTIAL_MAP,
+  TYPE_MAP,
+} from "../src/lib/constants"
 
 // Tool schema for structured output
 const NOTE_ANALYSIS_TOOL = {
@@ -166,7 +117,33 @@ Typy:
 - Next steps: 2-3 akcni kroky (u moudrosti/postrehu prazdne pole).
 </pravidla>`
 
-// Database setup
+// Cached encryption key
+let _cachedDerivedKey: Buffer | null = null
+
+function getDerivedKey(): Buffer {
+  if (_cachedDerivedKey) return _cachedDerivedKey
+  const key = process.env.ENCRYPTION_KEY
+  if (!key) throw new Error("ENCRYPTION_KEY not set")
+  const salt = process.env.ENCRYPTION_SALT
+  if (!salt) throw new Error("ENCRYPTION_SALT not set")
+  _cachedDerivedKey = crypto.scryptSync(key, salt, 32)
+  return _cachedDerivedKey
+}
+
+function decrypt(encrypted: string, iv: string): string {
+  const derivedKey = getDerivedKey()
+  const ivBuffer = Buffer.from(iv, "hex")
+  const authTag = Buffer.from(encrypted.slice(-32), "hex")
+  const encryptedText = encrypted.slice(0, -32)
+
+  const decipher = crypto.createDecipheriv("aes-256-gcm", derivedKey, ivBuffer)
+  decipher.setAuthTag(authTag)
+  let decrypted = decipher.update(encryptedText, "hex", "utf8")
+  decrypted += decipher.final("utf8")
+  return decrypted
+}
+
+// Database setup - singleton
 function createDb(): PrismaClient {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) {
@@ -194,26 +171,7 @@ async function publishEvent(
   data: Record<string, unknown> = {}
 ): Promise<void> {
   const event = { type, userId, data, timestamp: Date.now() }
-  await redis.publish(`${REDIS_CHANNEL_PREFIX}:${userId}`, JSON.stringify(event))
-}
-
-// Decrypt function (same algorithm as src/lib/encryption.ts)
-function decrypt(encrypted: string, iv: string): string {
-  const crypto = require("crypto")
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error("ENCRYPTION_KEY not set")
-
-  const salt = process.env.ENCRYPTION_SALT || "salt"
-  const derivedKey = crypto.scryptSync(key, salt, 32)
-  const ivBuffer = Buffer.from(iv, "hex")
-  const authTag = Buffer.from(encrypted.slice(-32), "hex")
-  const encryptedText = encrypted.slice(0, -32)
-
-  const decipher = crypto.createDecipheriv("aes-256-gcm", derivedKey, ivBuffer)
-  decipher.setAuthTag(authTag)
-  let decrypted = decipher.update(encryptedText, "hex", "utf8")
-  decrypted += decipher.final("utf8")
-  return decrypted
+  await redis.publish(REDIS_CHANNELS.userEvents(userId), JSON.stringify(event))
 }
 
 interface ProcessingResult {
@@ -302,27 +260,23 @@ async function main() {
   const redis = createRedis()
 
   const worker = new Worker(
-    QUEUE_NAME,
+    QUEUE_NAMES.AI_PROCESSING,
     async (job: Job) => {
       const { noteId, userId } = job.data
       console.log(`[AI Worker] Processing note ${noteId} for user ${userId}`)
 
-      // Publish start event
-      await publishEvent(redis, userId, EVENTS.AI_PROCESSING_START, { noteId })
+      await publishEvent(redis, userId, SSE_EVENTS.AI_PROCESSING_START, { noteId })
 
-      // Get note
       const note = await db.note.findUnique({ where: { id: noteId } })
       if (!note) {
         throw new Error(`Note ${noteId} not found`)
       }
 
-      // Update status
       await db.note.update({
         where: { id: noteId },
         data: { processingStatus: "PROCESSING" },
       })
 
-      // Get user AI settings
       const user = await db.user.findUnique({
         where: { id: userId },
         select: {
@@ -342,16 +296,13 @@ async function main() {
         throw new Error(`User ${userId} not found`)
       }
 
-      // Prepare content
       const rawContent = note.title
         ? `Nazev: ${note.title}\n\n${note.content}`
         : note.content
       const content = rawContent.replace(/"""/g, '"\\"\\""')
 
-      // Custom prompt overrides default system prompt
       const systemPrompt = user.customPrompt || SYSTEM_PROMPT
 
-      // Get API key and process
       let result: ProcessingResult
 
       if (user.aiProvider === "OPENAI" && user.openaiApiKey && user.openaiKeyIv) {
@@ -374,7 +325,6 @@ async function main() {
 
       const responseText = JSON.stringify(result, null, 2)
 
-      // Handle categorized/skip
       if (result.skip) {
         const noteCategory = result.note_category
           ? (NOTE_CATEGORY_MAP[result.note_category.toLowerCase()] || null)
@@ -391,44 +341,43 @@ async function main() {
             summary: result.summary || null,
           },
         })
-        await publishEvent(redis, userId, EVENTS.AI_PROCESSING_COMPLETE, { noteId })
+        await publishEvent(redis, userId, SSE_EVENTS.AI_PROCESSING_COMPLETE, { noteId })
         console.log(`[AI Worker] Note ${noteId} ${noteCategory ? `categorized as ${noteCategory}` : "skipped"}`)
         return { skipped: true, noteCategory }
       }
 
-      // Create idea
-      const idea = await db.idea.create({
-        data: {
-          userId: note.userId,
-          noteId: note.id,
-          title: result.title || "Bez nazvu",
-          description: result.description || "",
-          category: (CATEGORY_MAP[result.category?.toLowerCase() || "thought"] || "THOUGHT") as "BUSINESS" | "AI" | "FINANCE" | "THOUGHT",
-          potential: (POTENTIAL_MAP[result.potential?.toLowerCase() || "medium"] || "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
-          type: (TYPE_MAP[result.type?.toLowerCase() || "concept"] || "CONCEPT") as "PLATFORM" | "PRODUCT" | "SERVICE" | "TOOL" | "CONCEPT" | "INSIGHT" | "WISDOM" | "TIP",
-          nextSteps: result.next_steps || [],
-          status: "NEW",
-        },
-      })
+      // Create idea + tags in transaction
+      const idea = await db.$transaction(async (tx) => {
+        const newIdea = await tx.idea.create({
+          data: {
+            userId: note.userId,
+            noteId: note.id,
+            title: result.title || "Bez nazvu",
+            description: result.description || "",
+            category: (CATEGORY_MAP[result.category?.toLowerCase() || "thought"] || "THOUGHT") as "BUSINESS" | "AI" | "FINANCE" | "THOUGHT",
+            potential: (POTENTIAL_MAP[result.potential?.toLowerCase() || "medium"] || "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
+            type: (TYPE_MAP[result.type?.toLowerCase() || "concept"] || "CONCEPT") as "PLATFORM" | "PRODUCT" | "SERVICE" | "TOOL" | "CONCEPT" | "INSIGHT" | "WISDOM" | "TIP",
+            nextSteps: result.next_steps || [],
+            status: "NEW",
+          },
+        })
 
-      // Create tags
-      if (result.tags && result.tags.length > 0) {
-        for (const tagName of result.tags) {
-          let tag = await db.tag.findFirst({
-            where: { userId: note.userId, name: tagName },
-          })
-          if (!tag) {
-            tag = await db.tag.create({
-              data: { userId: note.userId, name: tagName },
+        if (result.tags && result.tags.length > 0) {
+          for (const tagName of result.tags) {
+            const tag = await tx.tag.upsert({
+              where: { userId_name: { userId: note.userId, name: tagName } },
+              update: {},
+              create: { userId: note.userId, name: tagName },
+            })
+            await tx.ideaTag.create({
+              data: { ideaId: newIdea.id, tagId: tag.id },
             })
           }
-          await db.ideaTag.create({
-            data: { ideaId: idea.id, tagId: tag.id },
-          })
         }
-      }
 
-      // Update note
+        return newIdea
+      })
+
       await db.note.update({
         where: { id: noteId },
         data: {
@@ -441,9 +390,8 @@ async function main() {
         },
       })
 
-      // Publish events
-      await publishEvent(redis, userId, EVENTS.AI_PROCESSING_COMPLETE, { noteId, ideaId: idea.id })
-      await publishEvent(redis, userId, EVENTS.IDEA_CREATED, { ideaId: idea.id, noteId })
+      await publishEvent(redis, userId, SSE_EVENTS.AI_PROCESSING_COMPLETE, { noteId, ideaId: idea.id })
+      await publishEvent(redis, userId, SSE_EVENTS.IDEA_CREATED, { ideaId: idea.id, noteId })
 
       console.log(`[AI Worker] Note ${noteId} processed -> Idea ${idea.id}`)
       return { ideaId: idea.id }
@@ -463,8 +411,7 @@ async function main() {
     if (job) {
       const { noteId, userId } = job.data
       try {
-        const db2 = createDb()
-        await db2.note.update({
+        await db.note.update({
           where: { id: noteId },
           data: {
             processingStatus: "FAILED",
@@ -473,7 +420,7 @@ async function main() {
             processedAt: new Date(),
           },
         })
-        await publishEvent(redis, userId, EVENTS.AI_PROCESSING_ERROR, {
+        await publishEvent(redis, userId, SSE_EVENTS.AI_PROCESSING_ERROR, {
           noteId,
           error: err.message,
         })
@@ -483,22 +430,18 @@ async function main() {
     }
   })
 
-  console.log(`[AI Worker] Listening on queue "${QUEUE_NAME}"`)
+  console.log(`[AI Worker] Listening on queue "${QUEUE_NAMES.AI_PROCESSING}"`)
 
   // Graceful shutdown
-  process.on("SIGINT", async () => {
+  const shutdown = async () => {
     console.log("[AI Worker] Shutting down...")
     await worker.close()
     redis.disconnect()
     process.exit(0)
-  })
+  }
 
-  process.on("SIGTERM", async () => {
-    console.log("[AI Worker] Shutting down...")
-    await worker.close()
-    redis.disconnect()
-    process.exit(0)
-  })
+  process.on("SIGINT", shutdown)
+  process.on("SIGTERM", shutdown)
 }
 
 main().catch((err) => {

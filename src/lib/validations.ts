@@ -1,49 +1,49 @@
 import { z } from "zod"
 
-// Helper pro extrakci první chybové zprávy z Zod erroru
+// Helper pro extrakci prvni chybove zpravy z Zod erroru
 export function getZodErrorMessage(error: z.ZodError): string {
   const issues = error.issues
   if (issues.length > 0) {
     return issues[0].message
   }
-  return "Validační chyba"
+  return "Validacni chyba"
 }
 
 export const registerSchema = z.object({
-  email: z.string().email("Neplatný email"),
-  password: z.string().min(8, "Heslo musí mít alespoň 8 znaků"),
-  name: z.string().min(2, "Jméno musí mít alespoň 2 znaky").optional(),
+  email: z.string().email("Neplatny email").max(255),
+  password: z.string().min(8, "Heslo musi mit alespon 8 znaku").max(128),
+  name: z.string().min(2, "Jmeno musi mit alespon 2 znaky").max(100).optional(),
 })
 
 export const loginSchema = z.object({
-  email: z.string().email("Neplatný email"),
-  password: z.string().min(1, "Heslo je povinné"),
+  email: z.string().email("Neplatny email").max(255),
+  password: z.string().min(1, "Heslo je povinne").max(128),
 })
 
 export const keepConnectSchema = z.object({
-  email: z.string().email("Neplatný Google email"),
-  oauthToken: z.string().min(10, "OAuth token je povinný"),
+  email: z.string().email("Neplatny Google email").max(255),
+  oauthToken: z.string().min(10, "OAuth token je povinny").max(4096),
 })
 
 export const keepConnectPasswordSchema = z.object({
-  email: z.string().email("Neplatný Google email"),
+  email: z.string().email("Neplatny Google email").max(255),
   appPassword: z.string()
-    .min(16, "App Password musí mít 16 znaků")
-    .max(19, "App Password je příliš dlouhé")
+    .min(16, "App Password musi mit 16 znaku")
+    .max(19, "App Password je prilis dlouhe")
     .refine(
       (val) => val.replace(/\s/g, '').length === 16,
-      "App Password musí mít přesně 16 znaků (bez mezer)"
+      "App Password musi mit presne 16 znaku (bez mezer)"
     ),
 })
 
 export const keepConnectTokenSchema = z.object({
-  email: z.string().email("Neplatny Google email"),
-  masterToken: z.string().min(10, "Master token je povinny"),
+  email: z.string().email("Neplatny Google email").max(255),
+  masterToken: z.string().min(10, "Master token je povinny").max(4096),
 })
 
 export const ideaSchema = z.object({
-  title: z.string().min(1, "Název je povinný").max(255),
-  description: z.string().min(1, "Popis je povinný"),
+  title: z.string().min(1, "Nazev je povinny").max(255),
+  description: z.string().min(1, "Popis je povinny").max(10000),
   category: z.enum(["BUSINESS", "AI", "FINANCE", "THOUGHT"]),
   potential: z.enum(["HIGH", "MEDIUM", "LOW"]),
   type: z.enum([
@@ -59,20 +59,20 @@ export const ideaSchema = z.object({
   status: z
     .enum(["NEW", "IN_PROGRESS", "REVIEW", "IMPLEMENTED", "ARCHIVED"])
     .optional(),
-  nextSteps: z.array(z.string()).optional(),
-  completedSteps: z.array(z.number()).optional(),
+  nextSteps: z.array(z.string().max(500)).max(20).optional(),
+  completedSteps: z.array(z.number().int().min(0).max(19)).max(20).optional(),
   isPinned: z.boolean().optional(),
-  tags: z.array(z.string()).optional(),
-  userNotes: z.string().optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+  userNotes: z.string().max(10000).optional(),
 })
 
 export const noteSchema = z.object({
   title: z.string().max(255).optional(),
-  content: z.string().min(1, "Obsah je povinný"),
+  content: z.string().min(1, "Obsah je povinny").max(50000),
 })
 
 export const ideaRelationSchema = z.object({
-  toIdeaId: z.string().min(1),
+  toIdeaId: z.string().min(1).max(255),
   type: z.enum(["RELATED", "DEPENDS_ON", "EVOLVED_FROM", "CONTRADICTS", "SUPPORTS"]),
   strength: z.number().min(0).max(1).optional(),
 })

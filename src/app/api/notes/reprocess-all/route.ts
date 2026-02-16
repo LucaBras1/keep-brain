@@ -3,12 +3,21 @@ import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
 import type { ProcessingStatus } from "@/generated/prisma"
 import { addBatchAiProcessingJobs, type AiProcessingJob } from "@/lib/queue"
+import { rateLimitAsync } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: "Neprihlsen" }, { status: 401 })
+      return NextResponse.json({ error: "Neprihlasen" }, { status: 401 })
+    }
+
+    const limiter = await rateLimitAsync(`reprocess:${user.id}`, { windowMs: 5 * 60 * 1000, maxRequests: 3 })
+    if (!limiter.success) {
+      return NextResponse.json(
+        { error: "Prilis mnoho pozadavku na zpracovani. Pockejte chvili." },
+        { status: 429 }
+      )
     }
 
     const includeSkipped = request.nextUrl.searchParams.get("includeSkipped") === "true"

@@ -25,7 +25,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2 } from "lucide-react"
+import { Loader2, FileText } from "lucide-react"
+
+const TEMPLATES = [
+  {
+    name: "Business Plan",
+    category: "BUSINESS",
+    potential: "HIGH",
+    type: "PLATFORM",
+    description: "Popis: \nCilova skupina: \nProblem: \nReseni: \nBusiness model: ",
+    nextSteps: ["Validovat problem s 5 lidmi", "Vytvorit MVP", "Ziskat prvniho zakaznika"],
+  },
+  {
+    name: "Kreativni projekt",
+    category: "THOUGHT",
+    potential: "MEDIUM",
+    type: "CONCEPT",
+    description: "Myslenka: \nInspirce: \nProc me to zajima: \nMozne formy: ",
+    nextSteps: ["Rozsirit myslenku", "Najit reference", "Zacat prototyp"],
+  },
+  {
+    name: "AI Nastroj",
+    category: "AI",
+    potential: "HIGH",
+    type: "TOOL",
+    description: "Co nastroj dela: \nVstup: \nVystup: \nTechnologie: ",
+    nextSteps: ["Definovat use case", "Vybrat AI model", "Implementovat POC"],
+  },
+  {
+    name: "Ucebni cil",
+    category: "THOUGHT",
+    potential: "MEDIUM",
+    type: "WISDOM",
+    description: "Co se chci naucit: \nProc: \nZdroje: \nCasovy ramec: ",
+    nextSteps: ["Najit kurz/knihu", "Naplanovati cas", "Zacat prvni lekci"],
+  },
+]
 
 interface CreateIdeaDialogProps {
   open: boolean
@@ -137,6 +172,26 @@ export function CreateIdeaDialog({
             Vytvořte nový nápad ručně. Všechna pole kromě tagů jsou povinná.
           </DialogDescription>
         </DialogHeader>
+        {/* Templates */}
+        <div className="flex gap-2 flex-wrap">
+          {TEMPLATES.map((tpl) => (
+            <Button
+              key={tpl.name}
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => {
+                setCategory(tpl.category)
+                setPotential(tpl.potential)
+                setType(tpl.type)
+                setDescription(tpl.description)
+              }}
+            >
+              <FileText className="h-3 w-3" />
+              {tpl.name}
+            </Button>
+          ))}
+        </div>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">

@@ -43,6 +43,7 @@ import { cs } from "date-fns/locale"
 import { InlineEdit } from "@/components/inline-edit"
 import { InlineSelect } from "@/components/inline-select"
 import { RelatedIdeas } from "@/components/ideas/related-ideas"
+import { ProgressTimeline } from "@/components/ideas/progress-timeline"
 import { cn } from "@/lib/utils"
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -419,6 +420,14 @@ export default function IdeaDetailPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Progress Timeline */}
+          {idea.versions && idea.versions.length > 0 && (
+            <ProgressTimeline
+              versions={idea.versions}
+              createdAt={idea.createdAt}
+            />
           )}
 
           {/* Related Ideas */}

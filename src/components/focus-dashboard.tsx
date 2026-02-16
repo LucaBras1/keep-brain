@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useStreak } from "@/hooks/use-streak"
 import {
@@ -17,10 +18,18 @@ import {
   Clock,
   Flame,
   PenLine,
+  Brain,
+  Timer,
+  Mic,
 } from "lucide-react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
+import { AiRecommender } from "@/components/ai-recommender"
+import { DoneToday } from "@/components/done-today"
+import { BrainDump } from "@/components/brain-dump"
+import { FocusSession } from "@/components/focus-session"
+import { VoiceCapture } from "@/components/voice-capture"
 
 interface FocusStats {
   unreadCount: number
@@ -46,6 +55,9 @@ interface FocusDashboardProps {
 
 export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
   const { currentStreak, weekHistory } = useStreak()
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false)
+  const [focusSessionOpen, setFocusSessionOpen] = useState(false)
+  const [voiceCaptureOpen, setVoiceCaptureOpen] = useState(false)
 
   const { data: focus, isLoading } = useQuery({
     queryKey: ["focus-stats"],
@@ -102,6 +114,18 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
               <Button size="lg" onClick={onQuickCapture} className="w-full sm:w-auto">
                 <PenLine className="mr-2 h-4 w-4" />
                 Zapsat myslenku
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => setBrainDumpOpen(true)} className="w-full sm:w-auto">
+                <Brain className="mr-2 h-4 w-4" />
+                Brain Dump
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => setFocusSessionOpen(true)} className="w-full sm:w-auto">
+                <Timer className="mr-2 h-4 w-4" />
+                Focus Session
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => setVoiceCaptureOpen(true)} className="w-full sm:w-auto">
+                <Mic className="mr-2 h-4 w-4" />
+                Hlasova poznamka
               </Button>
               <Link href="/ideas" className="w-full sm:w-auto">
                 <Button size="lg" variant="outline" className="w-full sm:w-auto">
@@ -232,6 +256,17 @@ export function FocusDashboard({ onQuickCapture }: FocusDashboardProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Done Today summary */}
+      <DoneToday />
+
+      {/* AI Recommender */}
+      <AiRecommender />
+
+      {/* Dialogs */}
+      <BrainDump open={brainDumpOpen} onOpenChange={setBrainDumpOpen} />
+      <FocusSession open={focusSessionOpen} onOpenChange={setFocusSessionOpen} />
+      <VoiceCapture open={voiceCaptureOpen} onOpenChange={setVoiceCaptureOpen} />
     </div>
   )
 }

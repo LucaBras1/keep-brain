@@ -112,6 +112,7 @@ export const NOTE_SOURCES = {
   KEEP: "keep",
   MANUAL: "manual",
   QUICK_CAPTURE: "quick_capture",
+  VOICE_CAPTURE: "voice_capture",
 } as const
 
 // Queue names

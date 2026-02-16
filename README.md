@@ -132,6 +132,20 @@ pm2 start ecosystem.config.js
 - ✅ Propojeni napadu (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
 - ✅ Kanban zobrazeni s drag & drop (@dnd-kit)
 - ✅ Mobilni sidebar s rozbalovacimi podkategoriemi poznamek (parita s desktopem)
+- ✅ AI doporuceni "Co mam delat?" (decision paralysis relief)
+- ✅ "Hotovo dnes" shrnuti s oslavou (positive reinforcement)
+- ✅ Hromadne akce na napadech (multi-select, bulk status/archive/delete/pin)
+- ✅ Chytre auto-sync (cron endpoint, kazdych 2+ hodin)
+- ✅ Ranni Brain Dump (2-min casovac, rozdeleni na odstavce)
+- ✅ Focus Session casovac (Pomodoro 15/25/45 min)
+- ✅ Casova osa napadu (historie verzi - AI vytvoreno, upraveno, prepracovano)
+- ✅ Sablony napadu (Business, Kreativni, AI Nastroj, Ucebni cil)
+- ✅ Hlasove poznamky (nahravani + OpenAI Whisper prepis)
+- ✅ Chytre per-idea pripominky (nudge pro zapomenute napady 7+ dni)
+- ✅ Optimisticke aktualizace (okamzita odezva UI)
+- ✅ Zlepseny indikator pozornosti (Badge misto tecky)
+- ✅ Sticky kanban hlavicky, breadcrumbs na mobilu
+- ✅ Accessibility (aria-labels, aria-live, role atributy)
 
 ### Dashboard a navigace
 - ✅ Dashboard s přehledem zpracování, nedávnými poznámkami a klikatelnými kategoriemi
@@ -144,8 +158,10 @@ pm2 start ecosystem.config.js
 
 ### Bezpečnost
 - ✅ Auth middleware s ochranou všech API a stránek
-- ✅ Rate limiting pro login/registraci (10 pokusů / 15 min)
-- ✅ Security headers (X-Frame-Options, HSTS, CSP atd.)
+- ✅ Rate limiting (Redis-based, login/register/sync/reprocess/search)
+- ✅ Security headers (X-Frame-Options, HSTS, CSP, X-Content-Type-Options atd.)
+- ✅ Content-Security-Policy header
+- ✅ Encrypted API key storage (AES-256-GCM s cached key derivation)
 - ✅ Zod validace na všech API endpointech
 - ✅ Error boundary pro graceful error handling
 - ✅ User-friendly error messages pro sync chyby
@@ -230,11 +246,25 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 /api/search
 └── GET    /           (fulltext search across notes & ideas)
 
+/api/ai
+└── POST   /recommend  (AI-powered "what to work on" recommendation)
+
+/api/audio
+└── POST   /transcribe (voice note transcription via Whisper)
+
 /api/stats
 ├── GET    /dashboard
 ├── GET    /export
 ├── GET    /focus       (focus mode stats)
-└── GET    /category-counts
+├── GET    /category-counts
+├── GET    /done-today  (daily accomplishments summary)
+└── GET    /stale-ideas (ideas needing attention)
+
+/api/cron
+└── POST   /auto-sync  (automated Keep sync, bearer token auth)
+
+/api/health
+└── GET    /           (system health check)
 
 /api/notes
 └── GET    /by-category/:category

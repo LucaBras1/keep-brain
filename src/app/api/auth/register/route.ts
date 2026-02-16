@@ -2,16 +2,15 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { hashPassword, createSession, setSessionCookie } from "@/lib/auth"
 import { registerSchema, getZodErrorMessage } from "@/lib/validations"
-import { rateLimit } from "@/lib/rate-limit"
+import { rateLimitAsync } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
-    // Rate limit by IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const limiter = rateLimit(`register:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
+    const limiter = await rateLimitAsync(`register:${ip}`, { windowMs: 60 * 60 * 1000, maxRequests: 5 })
     if (!limiter.success) {
       return NextResponse.json(
-        { error: "Příliš mnoho pokusů o registraci. Zkuste to později." },
+        { error: "Prilis mnoho pokusu o registraci. Zkuste to pozdeji." },
         {
           status: 429,
           headers: { "Retry-After": String(Math.ceil((limiter.resetAt - Date.now()) / 1000)) },
@@ -21,7 +20,6 @@ export async function POST(request: Request) {
 
     const body = await request.json()
 
-    // Validate input
     const result = registerSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json(
@@ -32,19 +30,17 @@ export async function POST(request: Request) {
 
     const { email, password, name } = result.data
 
-    // Check if user exists
     const existingUser = await db.user.findUnique({
       where: { email },
     })
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Uživatel s tímto emailem již existuje" },
+        { error: "Uzivatel s timto emailem jiz existuje" },
         { status: 400 }
       )
     }
 
-    // Create user
     const passwordHash = await hashPassword(password)
     const user = await db.user.create({
       data: {
@@ -54,7 +50,6 @@ export async function POST(request: Request) {
       },
     })
 
-    // Create session
     const token = await createSession(user.id)
     await setSessionCookie(token)
 
@@ -68,7 +63,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json(
-      { error: "Chyba při registraci" },
+      { error: "Chyba pri registraci" },
       { status: 500 }
     )
   }

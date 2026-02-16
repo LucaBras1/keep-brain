@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { rateLimitAsync } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Neprihlaseny" }, { status: 401 })
+    }
+
+    const limiter = await rateLimitAsync(`search:${user.id}`, { windowMs: 60 * 1000, maxRequests: 30 })
+    if (!limiter.success) {
+      return NextResponse.json(
+        { error: "Prilis mnoho vyhledavani. Pockejte chvili." },
+        { status: 429 }
+      )
     }
 
     const q = request.nextUrl.searchParams.get("q")?.trim()

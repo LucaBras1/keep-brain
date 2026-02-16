@@ -6,16 +6,15 @@ import {
   setSessionCookie,
 } from "@/lib/auth"
 import { loginSchema, getZodErrorMessage } from "@/lib/validations"
-import { rateLimit } from "@/lib/rate-limit"
+import { rateLimitAsync } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
-    // Rate limit by IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const limiter = rateLimit(`login:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
+    const limiter = await rateLimitAsync(`login:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
     if (!limiter.success) {
       return NextResponse.json(
-        { error: "Příliš mnoho pokusů o přihlášení. Zkuste to později." },
+        { error: "Prilis mnoho pokusu o prihlaseni. Zkuste to pozdeji." },
         {
           status: 429,
           headers: { "Retry-After": String(Math.ceil((limiter.resetAt - Date.now()) / 1000)) },
@@ -25,7 +24,6 @@ export async function POST(request: Request) {
 
     const body = await request.json()
 
-    // Validate input
     const result = loginSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json(
@@ -36,28 +34,25 @@ export async function POST(request: Request) {
 
     const { email, password } = result.data
 
-    // Find user
     const user = await db.user.findUnique({
       where: { email },
     })
 
     if (!user) {
       return NextResponse.json(
-        { error: "Neplatné přihlašovací údaje" },
+        { error: "Neplatne prihlasovaci udaje" },
         { status: 401 }
       )
     }
 
-    // Verify password
     const isValid = await verifyPassword(password, user.passwordHash)
     if (!isValid) {
       return NextResponse.json(
-        { error: "Neplatné přihlašovací údaje" },
+        { error: "Neplatne prihlasovaci udaje" },
         { status: 401 }
       )
     }
 
-    // Create session
     const token = await createSession(user.id)
     await setSessionCookie(token)
 
@@ -74,7 +69,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json(
-      { error: "Chyba při přihlášení" },
+      { error: "Chyba pri prihlaseni" },
       { status: 500 }
     )
   }

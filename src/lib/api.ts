@@ -120,6 +120,7 @@ export interface Idea {
   createdAt: string
   updatedAt: string
   tags: { tag: { id: string; name: string; color: string | null } }[]
+  versions?: { id: string; version: number; changeType: string; createdAt: string }[]
 }
 
 export interface IdeaCreateInput {
@@ -276,6 +277,16 @@ export const ideasApi = {
     fetchAPI<{ success: boolean }>(`/api/ideas/${id}`, {
       method: "DELETE",
     }),
+
+  batch: (data: {
+    ideaIds: string[]
+    action: "status" | "archive" | "delete" | "pin" | "unpin"
+    status?: string
+  }) =>
+    fetchAPI<{ updated: number; action: string }>("/api/ideas/batch", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 }
 
 // Idea Relations types
@@ -365,6 +376,36 @@ export const statsApi = {
 
   export: () =>
     fetchAPI<{ data: unknown }>("/api/stats/export"),
+
+  doneToday: () =>
+    fetchAPI<DoneTodayStats>("/api/stats/done-today"),
+}
+
+export interface DoneTodayStats {
+  notesCapture: number
+  ideasCreated: number
+  totalStepsCompleted: number
+  statusChanges: number
+  movedToProgress: number
+  movedToReview: number
+  implemented: number
+  totalActions: number
+  celebrationLevel: "none" | "good" | "great" | "amazing"
+}
+
+// AI API
+export interface AiRecommendation {
+  title: string
+  reason: string
+  nextStep: string | null
+  ideaId: string | null
+}
+
+export const aiApi = {
+  recommend: () =>
+    fetchAPI<{ recommendation: AiRecommendation }>("/api/ai/recommend", {
+      method: "POST",
+    }),
 }
 
 // Search API

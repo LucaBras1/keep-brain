@@ -18,7 +18,7 @@ export function KanbanColumn({ status, label, ideas }: KanbanColumnProps) {
 
   return (
     <div className="w-[280px] shrink-0 flex flex-col">
-      <div className="flex items-center gap-2 mb-3 px-1">
+      <div className="flex items-center gap-2 mb-3 px-1 sticky top-0 z-10 bg-background py-1">
         <h3 className="text-sm font-semibold">{label}</h3>
         <Badge variant="secondary" className="text-xs px-1.5 py-0">
           {ideas.length}
@@ -26,6 +26,8 @@ export function KanbanColumn({ status, label, ideas }: KanbanColumnProps) {
       </div>
       <div
         ref={setNodeRef}
+        role="list"
+        aria-label={`${label} - ${ideas.length} napadu`}
         className={cn(
           "flex-1 space-y-2 p-2 rounded-lg border-2 border-dashed min-h-[200px] transition-colors",
           isOver ? "border-primary/50 bg-primary/5" : "border-transparent"

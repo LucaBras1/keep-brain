@@ -178,6 +178,7 @@ model Session {
 
   @@index([token])
   @@index([userId])
+  @@index([expiresAt])
 }
 
 model NoteSource {
@@ -254,6 +255,7 @@ model Note {
   @@index([sourceId])
   @@index([contentHash])
   @@index([noteCategory])
+  @@index([userId, processingStatus])
 }
 
 model Idea {
@@ -293,6 +295,9 @@ model Idea {
   @@index([category])
   @@index([status])
   @@index([potential])
+  @@index([userId, category, status])
+  @@index([userId, updatedAt])
+  @@index([userId, isPinned])
 }
 
 model IdeaVersion {
@@ -371,20 +376,4 @@ model SyncLog {
   @@index([startedAt])
 }
 
-model ProcessingQueue {
-  id          String   @id @default(cuid())
-  noteId      String   @unique
-  priority    Int      @default(0)
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-  lastError   String?
-  scheduledAt DateTime @default(now())
-  lockedAt    DateTime?
-  lockedBy    String?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([scheduledAt])
-  @@index([lockedAt])
-}
+// ProcessingQueue removed - BullMQ handles queuing via Redis

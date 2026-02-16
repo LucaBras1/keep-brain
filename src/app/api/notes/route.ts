@@ -73,6 +73,8 @@ export async function POST(request: Request) {
 
     const source = body.source === NOTE_SOURCES.QUICK_CAPTURE
       ? NOTE_SOURCES.QUICK_CAPTURE
+      : body.source === NOTE_SOURCES.VOICE_CAPTURE
+      ? NOTE_SOURCES.VOICE_CAPTURE
       : NOTE_SOURCES.MANUAL
 
     const note = await db.note.create({

@@ -13,6 +13,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",
+      max_restarts: 15,
+      min_uptime: "10s",
+      kill_timeout: 5000,
       env: {
         NODE_ENV: "production",
         PORT: 3011,
@@ -26,16 +29,21 @@ module.exports = {
     {
       name: "keep-brain-worker",
       script: "worker/main.py",
-      interpreter: "worker/venv/bin/python",
+      interpreter: "/www/hosting/muzx.cz/keep/worker/venv/bin/python",
       cwd: "/www/hosting/muzx.cz/keep",
       instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: "500M",
+      max_restarts: 15,
+      min_uptime: "10s",
+      kill_timeout: 10000,
       env: {
         NODE_ENV: "production",
         DATABASE_URL: process.env.DATABASE_URL,
         REDIS_URL: process.env.REDIS_URL,
+        ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+        ENCRYPTION_SALT: process.env.ENCRYPTION_SALT,
       },
     },
     {
@@ -47,6 +55,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",
+      max_restarts: 15,
+      min_uptime: "10s",
+      kill_timeout: 10000,
       env: {
         NODE_ENV: "production",
         DATABASE_URL: process.env.DATABASE_URL,

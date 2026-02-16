@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import type { Idea } from "@/lib/api"
+import { needsAttention } from "@/lib/idea-helpers"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -47,6 +48,8 @@ export function KanbanCard({ idea, isDragOverlay }: KanbanCardProps) {
     transition,
   }
 
+  const attention = needsAttention(idea)
+
   return (
     <div
       ref={setNodeRef}
@@ -57,15 +60,28 @@ export function KanbanCard({ idea, isDragOverlay }: KanbanCardProps) {
         isDragging && "opacity-30",
         isDragOverlay && "shadow-lg rotate-2"
       )}
+      aria-label={`Napad: ${idea.title}, kategorie ${categoryLabels[idea.category] || idea.category}, potencial ${potentialLabels[idea.potential] || idea.potential}${attention ? ", potrebuje pozornost" : ""}`}
+      role="listitem"
     >
       <Link
         href={`/ideas/${idea.id}`}
         className={cn("block", isDragging && "pointer-events-none")}
         onClick={(e) => { if (isDragging) e.preventDefault() }}
       >
-        <Card className="p-3 cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors">
+        <Card className={cn(
+          "p-3 cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors",
+          attention && "border-orange-300/50 dark:border-orange-500/30"
+        )}>
           <p className="text-sm font-medium line-clamp-2 mb-2">{idea.title}</p>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {attention && (
+              <Badge
+                variant="warning"
+                className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40"
+              >
+                !
+              </Badge>
+            )}
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {categoryLabels[idea.category] || idea.category}
             </Badge>

@@ -81,10 +81,17 @@ npm run db:migrate:deploy # prisma migrate deploy
 | `KanbanColumn` | `src/components/ideas/kanban-column.tsx` | Single kanban column with droppable area |
 | `KanbanCard` | `src/components/ideas/kanban-card.tsx` | Draggable compact idea card for kanban view |
 | `MobileSidebar` | `src/components/layout/mobile-sidebar.tsx` | Mobile slide-out sidebar with expandable note subcategories |
+| `VoiceCapture` | `src/components/voice-capture.tsx` | Voice recording dialog with Whisper transcription |
+| `StaleIdeasNudge` | `src/components/stale-ideas-nudge.tsx` | Per-idea reminders for stale/neglected ideas |
+| `AiRecommender` | `src/components/ai-recommender.tsx` | AI "What should I work on?" decision helper |
+| `DoneToday` | `src/components/done-today.tsx` | End-of-day accomplishments summary |
+| `BrainDump` | `src/components/brain-dump.tsx` | 2-min free-write timer with paragraph splitting |
+| `FocusSession` | `src/components/focus-session.tsx` | Pomodoro-style focus timer |
+| `ProgressTimeline` | `src/components/ideas/progress-timeline.tsx` | Visual idea version history timeline |
 
 ## ADHD-UX Features
 
-The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C - COMPLETE):
+The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C + Full Audit - COMPLETE):
 - **Command palette** (Ctrl+K) - global search and navigation
 - **Quick capture** (Ctrl+N) - instant note/idea creation modal
 - **Focus dashboard** - distraction-free view with streaks and stats
@@ -106,6 +113,21 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C - COMPLETE):
 - **Idea connections** - link related ideas with typed relations (RELATED, DEPENDS_ON, EVOLVED_FROM, CONTRADICTS, SUPPORTS)
 - **Kanban view** - drag & drop ideas between status columns with @dnd-kit
 - **Mobile sidebar subcategories** - expandable note categories (Media, Tvorba, Organizace, Osobni) with counts in mobile sidebar, matching desktop parity
+- **AI recommender** - "Co mam delat?" button for decision paralysis relief (AI-powered or heuristic fallback)
+- **Done Today summary** - end-of-day accomplishments with celebration levels
+- **Batch quick actions** - multi-select ideas for bulk status change, archive, delete, pin
+- **Smart auto-sync** - cron endpoint for automatic Keep sync every 2+ hours
+- **Morning Brain Dump** - 2-min timer free-write mode splitting paragraphs into separate notes
+- **Focus Session timer** - Pomodoro-style timer with idea context (15/25/45 min presets)
+- **Idea Progress Timeline** - visual version history for each idea (AI created, edited, reprocessed)
+- **Idea Templates** - pre-filled structures for common idea types (Business, Creative, AI Tool, Learning)
+- **Voice Note Capture** - record audio, transcribe via OpenAI Whisper, save as note
+- **Smart per-idea reminders** - targeted nudges for stale/neglected ideas on dashboard (7+ days inactive)
+- **Optimistic updates** - instant UI response for status changes, pins, and step toggles
+- **Better attention indicator** - visible badge instead of tiny dot for ideas needing attention
+- **Breadcrumbs mobile visibility** - breadcrumbs visible on all screen sizes
+- **Sticky kanban headers** - column headers stay visible during scroll
+- **Accessibility improvements** - aria-labels, aria-live regions, role attributes throughout
 
 ## Database
 

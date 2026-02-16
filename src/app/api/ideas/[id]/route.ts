@@ -27,6 +27,10 @@ export async function GET(
           },
         },
         note: true,
+        versions: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
       },
     })
 
@@ -80,53 +84,36 @@ export async function PATCH(
 
     const { tags, completedSteps, isPinned, ...data } = result.data
 
-    await db.idea.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(completedSteps !== undefined ? { completedSteps } : {}),
-        ...(isPinned !== undefined ? { isPinned } : {}),
-      },
-    })
-
-    // Handle tags update if provided
-    if (tags !== undefined) {
-      // Remove existing tags
-      await db.ideaTag.deleteMany({
-        where: { ideaId: id },
+    const updatedIdea = await db.$transaction(async (tx) => {
+      await tx.idea.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(completedSteps !== undefined ? { completedSteps } : {}),
+          ...(isPinned !== undefined ? { isPinned } : {}),
+        },
       })
 
-      // Add new tags (scoped per user)
-      for (const tagName of tags) {
-        let tag = await db.tag.findFirst({
-          where: { userId: user.id, name: tagName },
-        })
+      if (tags !== undefined) {
+        await tx.ideaTag.deleteMany({ where: { ideaId: id } })
 
-        if (!tag) {
-          tag = await db.tag.create({
-            data: { userId: user.id, name: tagName },
+        for (const tagName of tags) {
+          const tag = await tx.tag.upsert({
+            where: { userId_name: { userId: user.id, name: tagName } },
+            update: {},
+            create: { userId: user.id, name: tagName },
+          })
+
+          await tx.ideaTag.create({
+            data: { ideaId: id, tagId: tag.id },
           })
         }
-
-        await db.ideaTag.create({
-          data: {
-            ideaId: id,
-            tagId: tag.id,
-          },
-        })
       }
-    }
 
-    // Refetch with updated tags
-    const updatedIdea = await db.idea.findUnique({
-      where: { id },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+      return tx.idea.findUnique({
+        where: { id },
+        include: { tags: { include: { tag: true } } },
+      })
     })
 
     return NextResponse.json({ idea: updatedIdea })

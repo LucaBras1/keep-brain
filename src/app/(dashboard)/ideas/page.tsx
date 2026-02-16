@@ -63,6 +63,9 @@ import {
   LayoutGrid,
   Columns3,
   SlidersHorizontal,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
@@ -178,6 +181,8 @@ export default function IdeasPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "kanban">("grid")
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectMode, setSelectMode] = useState(false)
   const debouncedSearch = useDebounce(search, 300)
 
   useEffect(() => {
@@ -247,6 +252,39 @@ export default function IdeasPage() {
     },
   })
 
+  const batchMutation = useMutation({
+    mutationFn: (params: { action: "status" | "archive" | "delete" | "pin" | "unpin"; status?: string }) =>
+      ideasApi.batch({ ideaIds: Array.from(selectedIds), ...params }),
+    onSuccess: (data) => {
+      toast({ title: `${data.updated} napadu upraveno`, variant: "success" })
+      setSelectedIds(new Set())
+      setSelectMode(false)
+      queryClient.invalidateQueries({ queryKey: ["ideas"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+    },
+    onError: (error: Error) => {
+      toast({ title: "Chyba", description: error.message, variant: "destructive" })
+    },
+  })
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    if (!data?.ideas) return
+    if (selectedIds.size === data.ideas.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(data.ideas.map((i) => i.id)))
+    }
+  }, [data?.ideas, selectedIds.size])
+
   return (
     <div className="space-y-3 md:space-y-6 animate-page-in">
       <div className="flex items-center justify-between">
@@ -257,6 +295,20 @@ export default function IdeasPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {viewMode === "grid" && (
+            <Button
+              variant={selectMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setSelectMode(!selectMode)
+                if (selectMode) setSelectedIds(new Set())
+              }}
+              aria-label="Rezim vyberu"
+              className="h-9 w-9 p-0"
+            >
+              <CheckSquare className="h-4 w-4" />
+            </Button>
+          )}
           <ToggleGroup type="single" value={viewMode} onValueChange={handleViewModeChange} className="shrink-0">
             <ToggleGroupItem value="grid" aria-label="Mrizkove zobrazeni" className="h-9 w-9 p-0">
               <LayoutGrid className="h-4 w-4" />
@@ -424,6 +476,9 @@ export default function IdeasPage() {
       </Card>
 
       {/* Ideas List */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {data?.ideas ? `${data.ideas.length} napadu nalezeno` : "Nacitani..."}
+      </div>
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
@@ -442,15 +497,92 @@ export default function IdeasPage() {
         viewMode === "kanban" ? (
           <KanbanBoard ideas={data.ideas} />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-stagger">
-            {data.ideas.map((idea) => (
-              <IdeaCard
-                key={idea.id}
-                idea={idea}
-                onDelete={() => deleteMutation.mutate(idea.id)}
-              />
-            ))}
-          </div>
+          <>
+            {/* Batch action bar */}
+            {selectMode && selectedIds.size > 0 && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="py-3 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+                      {selectedIds.size === data.ideas.length ? (
+                        <CheckSquare className="h-4 w-4 mr-1.5" />
+                      ) : (
+                        <Square className="h-4 w-4 mr-1.5" />
+                      )}
+                      {selectedIds.size} vybrano
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setSelectedIds(new Set()); setSelectMode(false) }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => batchMutation.mutate({ action: "pin" })}
+                      disabled={batchMutation.isPending}
+                    >
+                      Pripnout
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => batchMutation.mutate({ action: "archive" })}
+                      disabled={batchMutation.isPending}
+                    >
+                      Archivovat
+                    </Button>
+                    <Select onValueChange={(v) => batchMutation.mutate({ action: "status", status: v })}>
+                      <SelectTrigger className="w-[140px] h-8">
+                        <SelectValue placeholder="Zmenit stav" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusOptions.filter((o) => o.value !== "all").map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => batchMutation.mutate({ action: "delete" })}
+                      disabled={batchMutation.isPending}
+                    >
+                      Smazat
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-stagger">
+              {data.ideas.map((idea) => (
+                <div key={idea.id} className="relative">
+                  {selectMode && (
+                    <div
+                      className="absolute left-2 top-2 z-10 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(idea.id) }}
+                    >
+                      <Checkbox
+                        checked={selectedIds.has(idea.id)}
+                        onCheckedChange={() => toggleSelect(idea.id)}
+                        aria-label={`Vybrat ${idea.title}`}
+                      />
+                    </div>
+                  )}
+                  <IdeaCard
+                    idea={idea}
+                    onDelete={() => deleteMutation.mutate(idea.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
         )
       ) : (
         <Card className="border-dashed">
@@ -499,7 +631,25 @@ function IdeaCard({
   const toggleStepMutation = useMutation({
     mutationFn: (newCompleted: number[]) =>
       ideasApi.update(idea.id, { completedSteps: newCompleted } as Partial<IdeaCreateInput>),
-    onSuccess: () => {
+    onMutate: async (newCompleted) => {
+      await queryClient.cancelQueries({ queryKey: ["ideas"] })
+      const previous = queryClient.getQueriesData({ queryKey: ["ideas"] })
+      queryClient.setQueriesData({ queryKey: ["ideas"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old
+        const data = old as { ideas?: Idea[] }
+        if (!data.ideas) return old
+        return { ...data, ideas: data.ideas.map((i: Idea) => i.id === idea.id ? { ...i, completedSteps: newCompleted } : i) }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
     },
   })
@@ -507,7 +657,25 @@ function IdeaCard({
   const statusMutation = useMutation({
     mutationFn: (newStatus: string) =>
       ideasApi.update(idea.id, { status: newStatus } as Partial<IdeaCreateInput>),
-    onSuccess: () => {
+    onMutate: async (newStatus) => {
+      await queryClient.cancelQueries({ queryKey: ["ideas"] })
+      const previous = queryClient.getQueriesData({ queryKey: ["ideas"] })
+      queryClient.setQueriesData({ queryKey: ["ideas"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old
+        const data = old as { ideas?: Idea[] }
+        if (!data.ideas) return old
+        return { ...data, ideas: data.ideas.map((i: Idea) => i.id === idea.id ? { ...i, status: newStatus } : i) }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
     },
@@ -516,7 +684,25 @@ function IdeaCard({
   const pinMutation = useMutation({
     mutationFn: () =>
       ideasApi.update(idea.id, { isPinned: !idea.isPinned } as Partial<IdeaCreateInput>),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["ideas"] })
+      const previous = queryClient.getQueriesData({ queryKey: ["ideas"] })
+      queryClient.setQueriesData({ queryKey: ["ideas"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old
+        const data = old as { ideas?: Idea[] }
+        if (!data.ideas) return old
+        return { ...data, ideas: data.ideas.map((i: Idea) => i.id === idea.id ? { ...i, isPinned: !i.isPinned } : i) }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        for (const [key, data] of context.previous) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["ideas"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
     },
@@ -545,7 +731,13 @@ function IdeaCard({
                 {attention && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-400 shrink-0" />
+                      <Badge
+                        variant="warning"
+                        className="text-[10px] px-1.5 py-0 bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40 shrink-0"
+                        aria-label="Potrebuje pozornost"
+                      >
+                        Pozornost
+                      </Badge>
                     </TooltipTrigger>
                     <TooltipContent>{attentionReason}</TooltipContent>
                   </Tooltip>

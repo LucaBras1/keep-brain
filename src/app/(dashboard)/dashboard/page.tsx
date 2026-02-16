@@ -37,6 +37,7 @@ import { formatDateMobile, formatDateDesktop } from "@/lib/date-utils"
 import { FocusDashboard } from "@/components/focus-dashboard"
 import { NotePreviewHover } from "@/components/notes/note-preview-hover"
 import { WeeklyReviewNudge } from "@/components/weekly-review-nudge"
+import { StaleIdeasNudge } from "@/components/stale-ideas-nudge"
 
 const categoryLabels: Record<string, string> = {
   BUSINESS: "Business",
@@ -211,6 +212,9 @@ export default function DashboardPage() {
         <>
           {/* Weekly Review Nudge */}
           <WeeklyReviewNudge />
+
+          {/* Stale Ideas Nudge */}
+          <StaleIdeasNudge />
 
           {/* Pinned Ideas */}
           {stats?.pinnedIdeas && stats.pinnedIdeas.length > 0 && (

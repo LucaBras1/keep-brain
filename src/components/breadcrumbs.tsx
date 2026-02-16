@@ -78,7 +78,7 @@ export function Breadcrumbs() {
   if (items.length <= 1) return null
 
   return (
-    <nav className="hidden md:flex items-center gap-1 text-sm text-muted-foreground md:mb-4 min-h-[24px]">
+    <nav className="flex items-center gap-1 text-xs md:text-sm text-muted-foreground mb-2 md:mb-4 min-h-[24px] overflow-x-auto" aria-label="Navigacni cesta">
       {items.map((item, i) => {
         const isLast = i === items.length - 1
         return (
