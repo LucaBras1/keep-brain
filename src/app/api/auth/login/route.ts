@@ -14,8 +14,10 @@ export async function POST(request: Request) {
     // DEBUG DMMF
     console.log("=== NEXT.JS RUNTIME DMMF ===")
     try {
-      const userModel = Prisma.dmmf.datamodel.models.find((m: any) => m.name === "User")
-      console.log("User fields in Prisma.dmmf:", userModel?.fields.map((f: any) => f.name))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userModel = (Prisma.dmmf.datamodel.models as any[]).find((m) => m.name === "User")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("User fields in Prisma.dmmf:", (userModel?.fields as any[]).map((f) => f.name))
     } catch (e) {
       console.error("Failed to read Prisma.dmmf:", e)
     }
