@@ -282,18 +282,21 @@ Pokud už máte master token z jiného nástroje (např. [keep-it-markdown](http
 
 ## Deployment
 
-### VPS (Apache + PM2)
+### VPS (nginx + PM2, server edi06.vas-server.cz)
 
-1. Nastavte Apache VirtualHost:
-```apache
-<VirtualHost *:443>
-  ServerName keep.muzx.cz
-  ProxyPass / http://127.0.0.1:3011/
-  ProxyPassReverse / http://127.0.0.1:3011/
-  SSLEngine on
-  SSLCertificateFile /etc/letsencrypt/live/keep.muzx.cz/fullchain.pem
-  SSLCertificateKeyFile /etc/letsencrypt/live/keep.muzx.cz/privkey.pem
-</VirtualHost>
+1. Nastavte nginx reverse proxy (`/etc/nginx/sites-available/keep.conf`):
+```nginx
+server {
+    server_name keep.muzx.cz;
+    location / {
+        proxy_pass http://127.0.0.1:3011;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;  # SSE stream support
+    }
+    listen 443 ssl;  # certifikat spravuje certbot --nginx
+}
 ```
 
 2. Spusťte aplikaci:
