@@ -131,6 +131,13 @@ model User {
 
   // Preferences
   theme           Theme     @default(SYSTEM)
+  language        String    @default("en")
+
+  // Stripe Subscription
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
 
   // === AI SETTINGS ===
   // Provider & Keys

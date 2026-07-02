@@ -31,6 +31,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useLogout } from "@/hooks/use-auth"
 import { useRecentItems } from "@/hooks/use-recent-items"
+import { useTranslation } from "@/components/providers/language-provider"
+
 
 const categoryGroups = [
   {
@@ -83,6 +85,7 @@ export function Sidebar() {
   const logout = useLogout()
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const { items: recentItems } = useRecentItems()
+  const { t } = useTranslation()
 
   const { data: categoryCounts } = useQuery({
     queryKey: ["category-counts"],
@@ -109,6 +112,7 @@ export function Sidebar() {
             const isActive =
               pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href))
+            const translatedTitle = item.href === "/" ? t("dashboard") : t("ideas")
             return (
               <Link key={item.href} href={item.href}>
                 <span
@@ -120,7 +124,7 @@ export function Sidebar() {
                   )}
                 >
                   <item.icon className="h-4 w-4" />
-                  {item.title}
+                  {translatedTitle}
                 </span>
               </Link>
             )
@@ -139,7 +143,7 @@ export function Sidebar() {
                   )}
                 >
                   <StickyNote className="h-4 w-4" />
-                  Poznamky
+                  {t("notes")}
                   {categoryCounts?.totalNotes !== undefined && (
                     <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-5">
                       {categoryCounts.totalNotes}
@@ -208,7 +212,7 @@ export function Sidebar() {
               )}
             >
               <Settings className="h-4 w-4" />
-              Nastaveni
+              {t("settings")}
             </span>
           </Link>
         </nav>
@@ -218,7 +222,7 @@ export function Sidebar() {
           <div className="mt-6 px-3">
             <Separator className="mb-3" />
             <span className="block px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Nedavne
+              {t("recent")}
             </span>
             <div className="space-y-0.5">
               {recentItems.map((item) => (
@@ -248,7 +252,7 @@ export function Sidebar() {
           disabled={logout.isPending}
         >
           <LogOut className="h-4 w-4" />
-          Odhlasit se
+          {t("logout")}
         </Button>
       </div>
     </div>

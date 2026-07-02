@@ -5,6 +5,7 @@ import {
   CustomPromptCard,
   GoogleKeepCard,
   AccountInfoCard,
+  BillingCard,
 } from "@/components/settings"
 
 export default function SettingsPage() {
@@ -15,6 +16,7 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Sprava uctu, AI a propojeni sluzeb</p>
       </div>
 
+      <BillingCard />
       <AiSettingsCard />
       <CustomPromptCard />
       <GoogleKeepCard />

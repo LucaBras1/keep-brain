@@ -289,6 +289,8 @@ async function main() {
           openaiModel: true,
           aiTemperature: true,
           customPrompt: true,
+          stripeSubscriptionId: true,
+          stripeCurrentPeriodEnd: true,
         },
       })
 
@@ -304,23 +306,30 @@ async function main() {
       const systemPrompt = user.customPrompt || SYSTEM_PROMPT
 
       let result: ProcessingResult
+      const hasActiveSubscription = !!(
+        user.stripeSubscriptionId &&
+        user.stripeCurrentPeriodEnd &&
+        new Date(user.stripeCurrentPeriodEnd) > new Date()
+      )
 
-      if (user.aiProvider === "OPENAI" && user.openaiApiKey && user.openaiKeyIv) {
-        const apiKey = decrypt(user.openaiApiKey, user.openaiKeyIv)
-        result = await processWithOpenAI(apiKey, user.openaiModel, content, user.aiTemperature, systemPrompt)
-      } else if (user.anthropicApiKey && user.anthropicKeyIv) {
-        const apiKey = decrypt(user.anthropicApiKey, user.anthropicKeyIv)
-        result = await processWithClaude(apiKey, user.claudeModel, content, user.aiTemperature, systemPrompt)
-      } else if (process.env.ANTHROPIC_API_KEY) {
-        result = await processWithClaude(
-          process.env.ANTHROPIC_API_KEY,
-          user.claudeModel,
-          content,
-          user.aiTemperature,
-          systemPrompt
-        )
-      } else {
-        throw new Error("No AI API key configured")
+      if (user.aiProvider === "OPENAI") {
+        if (user.openaiApiKey && user.openaiKeyIv) {
+          const apiKey = decrypt(user.openaiApiKey, user.openaiKeyIv)
+          result = await processWithOpenAI(apiKey, user.openaiModel, content, user.aiTemperature, systemPrompt)
+        } else if (hasActiveSubscription && process.env.OPENAI_API_KEY) {
+          result = await processWithOpenAI(process.env.OPENAI_API_KEY, user.openaiModel, content, user.aiTemperature, systemPrompt)
+        } else {
+          throw new Error("Pro použití centrální AI je vyžadováno aktivní předplatné Pro/Team. Zadejte prosím vlastní OpenAI API klíč v Nastavení.")
+        }
+      } else { // CLAUDE
+        if (user.anthropicApiKey && user.anthropicKeyIv) {
+          const apiKey = decrypt(user.anthropicApiKey, user.anthropicKeyIv)
+          result = await processWithClaude(apiKey, user.claudeModel, content, user.aiTemperature, systemPrompt)
+        } else if (hasActiveSubscription && process.env.ANTHROPIC_API_KEY) {
+          result = await processWithClaude(process.env.ANTHROPIC_API_KEY, user.claudeModel, content, user.aiTemperature, systemPrompt)
+        } else {
+          throw new Error("Pro použití centrální AI je vyžadováno aktivní předplatné Pro/Team. Zadejte prosím vlastní Anthropic API klíč v Nastavení.")
+        }
       }
 
       const responseText = JSON.stringify(result, null, 2)

@@ -78,6 +78,22 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           updatedAt: true,
           tags: { select: { tag: { select: { id: true, name: true } } } },
+          fromRelations: {
+            select: {
+              id: true,
+              toIdeaId: true,
+              type: true,
+              strength: true,
+            }
+          },
+          toRelations: {
+            select: {
+              id: true,
+              fromIdeaId: true,
+              type: true,
+              strength: true,
+            }
+          },
         },
       }),
       db.idea.count({ where }),

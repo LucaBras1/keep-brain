@@ -73,6 +73,7 @@ import { format, formatDistanceToNow } from "date-fns"
 import { cs } from "date-fns/locale"
 import { CreateIdeaDialog } from "@/components/ideas/create-idea-dialog"
 import { KanbanBoard } from "@/components/ideas/kanban-board"
+import { MindMap } from "@/components/ideas/mind-map"
 import { needsAttention, getAttentionReason } from "@/lib/idea-helpers"
 import {
   Tooltip,
@@ -179,7 +180,7 @@ export default function IdeasPage() {
 
   const [search, setSearch] = useState(urlSearch)
   const [createOpen, setCreateOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<"grid" | "kanban">("grid")
+  const [viewMode, setViewMode] = useState<"grid" | "kanban" | "map">("grid")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectMode, setSelectMode] = useState(false)
@@ -187,11 +188,11 @@ export default function IdeasPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem("keepbrain_ideas_view")
-    if (saved === "grid" || saved === "kanban") setViewMode(saved)
+    if (saved === "grid" || saved === "kanban" || saved === "map") setViewMode(saved)
   }, [])
 
   function handleViewModeChange(value: string) {
-    if (value === "grid" || value === "kanban") {
+    if (value === "grid" || value === "kanban" || value === "map") {
       setViewMode(value)
       localStorage.setItem("keepbrain_ideas_view", value)
     }
@@ -315,6 +316,9 @@ export default function IdeasPage() {
             </ToggleGroupItem>
             <ToggleGroupItem value="kanban" aria-label="Kanban zobrazeni" className="h-9 w-9 p-0">
               <Columns3 className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="map" aria-label="Myšlenková mapa" className="h-9 w-9 p-0">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
             </ToggleGroupItem>
           </ToggleGroup>
           <Button onClick={() => setCreateOpen(true)} className="hidden md:flex">
@@ -496,6 +500,8 @@ export default function IdeasPage() {
       ) : data?.ideas && data.ideas.length > 0 ? (
         viewMode === "kanban" ? (
           <KanbanBoard ideas={data.ideas} />
+        ) : viewMode === "map" ? (
+          <MindMap ideas={data.ideas} />
         ) : (
           <>
             {/* Batch action bar */}

@@ -62,11 +62,16 @@ export interface User {
   email: string
   name: string | null
   theme: "LIGHT" | "DARK" | "SYSTEM"
+  language: string
   keepEmail: string | null
   syncEnabled: boolean
   lastSyncAt: string | null
   syncStatus: "IDLE" | "SYNCING" | "SUCCESS" | "FAILED"
   syncError: string | null
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  stripePriceId: string | null
+  stripeCurrentPeriodEnd: string | null
 }
 
 export interface Note {
@@ -121,6 +126,8 @@ export interface Idea {
   updatedAt: string
   tags: { tag: { id: string; name: string; color: string | null } }[]
   versions?: { id: string; version: number; changeType: string; createdAt: string }[]
+  fromRelations?: Array<{ id: string; toIdeaId: string; type: string; strength: number }>
+  toRelations?: Array<{ id: string; fromIdeaId: string; type: string; strength: number }>
 }
 
 export interface IdeaCreateInput {
@@ -490,4 +497,25 @@ export const settingsApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  updateLanguage: (language: "cs" | "en") =>
+    fetchAPI<{ success: boolean; language: string }>("/api/settings/language", {
+      method: "PATCH",
+      body: JSON.stringify({ language }),
+    }),
 }
+
+// Billing API
+export const billingApi = {
+  createCheckoutSession: (priceId: string) =>
+    fetchAPI<{ url: string }>("/api/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ priceId }),
+    }),
+
+  createPortalSession: () =>
+    fetchAPI<{ url: string }>("/api/billing/portal", {
+      method: "POST",
+    }),
+}
+

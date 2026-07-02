@@ -18,11 +18,16 @@ export async function GET() {
         email: user.email,
         name: user.name,
         theme: user.theme,
+        language: user.language,
         keepEmail: user.keepEmail,
         syncEnabled: user.syncEnabled,
         lastSyncAt: user.lastSyncAt,
         syncStatus: user.syncStatus,
         syncError: user.syncError,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+        stripePriceId: user.stripePriceId,
+        stripeCurrentPeriodEnd: user.stripeCurrentPeriodEnd,
       },
     })
   } catch (error) {
