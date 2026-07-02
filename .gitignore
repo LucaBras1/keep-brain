@@ -52,3 +52,6 @@ worker/__pycache__/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy marker psany serverem (autodeploy cron)
+/public/version.txt
