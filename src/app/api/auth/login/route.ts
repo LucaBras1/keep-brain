@@ -7,9 +7,19 @@ import {
 } from "@/lib/auth"
 import { loginSchema, getZodErrorMessage } from "@/lib/validations"
 import { rateLimitAsync } from "@/lib/rate-limit"
+import { Prisma } from "@/generated/prisma"
 
 export async function POST(request: Request) {
   try {
+    // DEBUG DMMF
+    console.log("=== NEXT.JS RUNTIME DMMF ===")
+    try {
+      const userModel = Prisma.dmmf.datamodel.models.find((m: any) => m.name === "User")
+      console.log("User fields in Prisma.dmmf:", userModel?.fields.map((f: any) => f.name))
+    } catch (e) {
+      console.error("Failed to read Prisma.dmmf:", e)
+    }
+
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
     const limiter = await rateLimitAsync(`login:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
     if (!limiter.success) {
