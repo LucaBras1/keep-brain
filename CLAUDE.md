@@ -148,7 +148,7 @@ The app includes ADHD-optimized UX features (Phase 1 + 2A + 2B + 2C + Full Audit
 ## Deployment
 
 Push to `master` triggers GitHub Actions (`deploy.yml`) which:
-1. SSH to VPS (`/www/hosting/muzx.cz/keep`)
+1. SSH to VPS **edi06.vas-server.cz** (`/www/hosting/muzx.cz/keep`) — migrated from dvi12 on 2026-07-02; nginx reverse proxy (not Apache), DB is local PostgreSQL `keepbrain`
 2. `git pull` + `npm ci` + `prisma generate` + `prisma migrate deploy`
 3. `npm run build` (with `NODE_OPTIONS="--max-old-space-size=4096"`)
 4. `pm2 restart` all 3 processes
