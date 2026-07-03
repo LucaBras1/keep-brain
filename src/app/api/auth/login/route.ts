@@ -7,25 +7,10 @@ import {
 } from "@/lib/auth"
 import { loginSchema, getZodErrorMessage } from "@/lib/validations"
 import { rateLimitAsync } from "@/lib/rate-limit"
-import { Prisma } from "@/generated/prisma"
+
 
 export async function POST(request: Request) {
   try {
-    // DEBUG DMMF
-    console.log("=== NEXT.JS RUNTIME DMMF ===")
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const userModel = (Prisma.dmmf.datamodel.models as any[]).find((m) => m.name === "User")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      console.log("User fields in Prisma.dmmf:", (userModel?.fields as any[]).map((f) => f.name))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      console.log("Next.js runtime db config:", (db as any)._engineConfig)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      console.log("Next.js runtime db _dmmf user fields:", (db as any)._dmmf?.modelMap?.User?.fields?.map((f: any) => f.name))
-    } catch (e) {
-      console.error("Failed to read Prisma.dmmf or config:", e)
-    }
-
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
     const limiter = await rateLimitAsync(`login:${ip}`, { windowMs: 15 * 60 * 1000, maxRequests: 10 })
     if (!limiter.success) {
