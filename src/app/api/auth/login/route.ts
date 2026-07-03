@@ -20,6 +20,8 @@ export async function POST(request: Request) {
       console.log("User fields in Prisma.dmmf:", (userModel?.fields as any[]).map((f) => f.name))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       console.log("Next.js runtime db config:", (db as any)._engineConfig)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log("Next.js runtime db _dmmf user fields:", (db as any)._dmmf?.modelMap?.User?.fields?.map((f: any) => f.name))
     } catch (e) {
       console.error("Failed to read Prisma.dmmf or config:", e)
     }
